@@ -22,7 +22,6 @@ app.use([
   cors(),
   morgan("dev"),
 ]);
-app.use("/uploads", express.static("public/uploads"));
 
 app.use(
   "/swagger",
@@ -63,6 +62,8 @@ app.use(
 //   console.log("⏳ Tarea programada ejecutada.");
 // });
 
-app.listen(PORT, () => {
+const server = app.listen(PORT, "0.0.0.0", () => {
   console.log(`Server is running on port ${PORT}`);
 });
+
+server.timeout = 300000; // 5 minutes timeout for uploads

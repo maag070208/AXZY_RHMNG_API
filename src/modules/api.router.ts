@@ -6,6 +6,8 @@ import locationsRoute from "./locations/locations.routes";
 import uploadRoute from "./common/upload.routes";
 import kardexRoute from "./kardex/kardex.routes";
 import assignmentsRoute from "./assignments/assignment.routes";
+import recurringRoute from "./recurring/recurring.routes";
+import incidentRoute from "./incidents/incident.routes";
 
 
 const apiRouter = Router();
@@ -16,6 +18,8 @@ apiRouter.use("/locations", locationsRoute);
 apiRouter.use("/uploads", uploadRoute);
 apiRouter.use("/kardex", kardexRoute);
 apiRouter.use("/assignments", assignmentsRoute);
+apiRouter.use("/recurring", recurringRoute);
+apiRouter.use("/incidents", incidentRoute);
 
 
 export default apiRouter;

@@ -31,8 +31,11 @@ export const createAssignment = async (req: Request, res: Response) => {
 
 export const getMyAssignments = async (req: Request, res: Response) => {
   try {
+    // @ts-ignore
+    const userId = req.user?.id;
     const { guardId: queryGuardId } = req.query;
-    const guardId =  Number(queryGuardId);
+    const guardId =  userId ? Number(userId) : Number(queryGuardId);
+    
     if (!guardId) return res.status(401).json(createTResult(null, ["Unauthorized"]));
 
     const result = await assignmentService.getAssignmentsByGuard(Number(guardId));

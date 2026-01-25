@@ -41,12 +41,18 @@ model User {
   softDelete Boolean  @default(false)
   shiftStart String? // HH:mm
   shiftEnd   String? // HH:mm
+  isLoggedIn Boolean  @default(false)
   createdAt  DateTime @default(now())
   updatedAt  DateTime @updatedAt
 
   // Relations
-  kardexEntries Kardex[]
-  assignments   Assignment[] @relation("GuardAssignments")
+  kardexEntries            Kardex[]
+  assignments              Assignment[]             @relation("GuardAssignments")
+  recurringConfigurations  RecurringConfiguration[] @relation("RecurringAssignments")
+  recurringConfiguration   RecurringConfiguration?  @relation(fields: [recurringConfigurationId], references: [id])
+  recurringConfigurationId Int?
+  incidents                Incident[]
+  resolvedIncidents        Incident[]               @relation("IncidentResolver")
 }
 
 ////////////////////////////////////////////////////
@@ -65,8 +71,9 @@ model Location {
   createdAt  DateTime @default(now())
   updatedAt  DateTime @updatedAt
 
-  kardexEntries Kardex[]
-  assignments   Assignment[]
+  kardexEntries      Kardex[]
+  assignments        Assignment[]
+  recurringLocations RecurringLocation[]
 }
 
 model Kardex {
@@ -79,6 +86,7 @@ model Kardex {
   latitude   Float?
   longitude  Float?
 
+  scanType     ScanType @default(FREE)
   assignmentId Int? // Optional link to an assignment
 
   user       User        @relation(fields: [userId], references: [id])
@@ -123,4 +131,77 @@ model AssignmentTask {
   assignment Assignment @relation(fields: [assignmentId], references: [id])
 
   @@index([assignmentId])
+}
+
+////////////////////////////////////////////////////
+// RECURRING LOCATIONS
+////////////////////////////////////////////////////
+
+enum ScanType {
+  ASSIGNMENT
+  RECURRING
+  FREE
+}
+
+model RecurringConfiguration {
+  id          Int     @id @default(autoincrement())
+  title       String
+  description String?
+  active      Boolean @default(true)
+
+  recurringLocations RecurringLocation[]
+  guards             User[]              @relation("RecurringAssignments")
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  users     User[]
+}
+
+model RecurringLocation {
+  id              Int     @id @default(autoincrement())
+  configurationId Int
+  locationId      Int
+  active          Boolean @default(true)
+
+  configuration RecurringConfiguration @relation(fields: [configurationId], references: [id])
+  location      Location               @relation(fields: [locationId], references: [id])
+  tasks         RecurringTask[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model RecurringTask {
+  id                  Int     @id @default(autoincrement())
+  recurringLocationId Int
+  description         String
+  reqPhoto            Boolean @default(false)
+
+  recurringLocation RecurringLocation @relation(fields: [recurringLocationId], references: [id])
+}
+
+// Update Kardex model to include scanType
+// Add this below the Kardex model definition or merging it
+
+model Incident {
+  id           Int            @id @default(autoincrement())
+  guardId      Int
+  title        String // e.g. "Vehiculo mal estacionado"
+  category     String // e.g. "MULTA", "MANTENIMIENTO", "ACCESO"
+  description  String?        @db.Text
+  media        Json? // Array of { type: 'IMAGE' | 'VIDEO', url: 'string' }
+  status       IncidentStatus @default(PENDING)
+  resolvedAt   DateTime?
+  resolvedById Int?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  guard      User  @relation(fields: [guardId], references: [id])
+  resolvedBy User? @relation("IncidentResolver", fields: [resolvedById], references: [id])
+}
+
+enum IncidentStatus {
+  PENDING
+  ATTENDED
 }

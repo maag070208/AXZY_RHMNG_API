@@ -24,9 +24,123 @@ export const login = async (req: Request, res: Response) => {
       return res.status(401).json(createTResult("", ["Contraseña invalida"]));
     }
 
+    // SHIFT CHECK
+    if (user.role === 'GUARD' || user.role === 'SHIFT_GUARD') {
+      const dayjs = require('dayjs');
+      const customParseFormat = require('dayjs/plugin/customParseFormat');
+      const isBetween = require('dayjs/plugin/isBetween');
+      dayjs.extend(customParseFormat);
+      dayjs.extend(isBetween);
+
+      const now = dayjs();
+      // Handle the case where shiftEnd is '07:00' (next day) and shiftStart is '23:00'
+      // We need to construct full Date objects for comparison
+      // If shiftEnd < shiftStart, it implies crossing midnight
+
+      // Check if user has shift defined
+      // If strict compliance is required, we fail if no shift defined. Assuming soft for now or strict?
+      // "define los horarios" implies they should exist.
+      if (user.shiftStart && user.shiftEnd) {
+         const currentStr = now.format('HH:mm');
+         const startStr = user.shiftStart;
+         const endStr = user.shiftEnd;
+         
+         // Simple comparison doesn't work for overnight.
+         // Let's use a helper logic:
+         let isInShift = false;
+         if (endStr < startStr) {
+             // Overnight shift (e.g. 23:00 to 07:00)
+             // Valid if now >= 23:00 OR now <= 07:00
+             isInShift = currentStr >= startStr || currentStr <= endStr;
+         } else {
+             // Normal shift (e.g. 07:00 to 15:00)
+             isInShift = currentStr >= startStr && currentStr <= endStr;
+         }
+
+         if (!isInShift) {
+             return res.status(403).json(createTResult("", ["Fuera de horario de turno"]));
+         }
+
+         // CHECK CONCURRENCY (Single Guard per Shift)
+         const { getLoggedInGuards } = require('./user.service');
+         const activeGuards = await getLoggedInGuards(user.id);
+         
+         // Convert active guards to see if any are VALIDLY in shift right now.
+         // If a guard is logged in but OUT of shift (forgot logout), they don't count?
+         // User said: "solo se puede loggear un guardia por turno".
+         // If Guard A is logged in and it IS their shift (e.g. they are Morning and it's morning),
+         // then we block.
+         // If Guard B (Morning) tries to login.
+         
+         const conflict = activeGuards.find((g: any) => {
+             if (!g.shiftStart || !g.shiftEnd) return false;
+             
+             // Check if 'g' is currently in shift
+             const gStart = g.shiftStart;
+             const gEnd = g.shiftEnd;
+             let gInShift = false;
+             if (gEnd < gStart) {
+                 gInShift = currentStr >= gStart || currentStr <= gEnd;
+             } else {
+                 gInShift = currentStr >= gStart && currentStr <= gEnd;
+             }
+             return gInShift;
+         });
+
+         if (conflict) {
+             return res.status(403).json(createTResult("", [`El turno ya está ocupado por ${conflict.name} ${conflict.lastName || ''}`]));
+         }
+      }
+    }
+
+    // Update logged in status
+    const { updateUser } = require('./user.service');
+    await updateUser(user.id, { isLoggedIn: true });
+
     return res.status(200).json(createTResult(await generateJWT(user)));
   } catch (error: any) {
     return res.status(500).json(createTResult("", error.message));
+  }
+};
+
+export const logout = async (req: Request, res: Response) => {
+  try {
+     // Assuming user id is in req.body or derived from token if passed?
+     // Actually logout is often just client-side, but we need to update DB.
+     // If we use middleware, we have user in res.locals.user
+     // But if token is expired? We might still want to clear DB.
+     // Typically logout endpoint requires auth.
+     
+     // Let's assume passed in body or strictly from auth middleware.
+     // If we use auth middleware, we can access user id.
+     const { id } = req.body; // Or from token
+     // If we use middleware, 'req.user' or 'res.locals.user'
+     // Let's rely on body for simplicity if middleware not used, or better user attached.
+     // I'll check if user attached.
+     
+     // Actually, let's use the ID from the token if available. 
+     // But if token invalid, we can't identify user easily to logout.
+     // Let's accept ID in body for force logout, or rely on token.
+     // User requirement: "si se sale de app, no cerrarle sesion". 
+     // "cerrarle la sesion en automatico" if active out of shift.
+     
+     // For explicit logout (button click):
+     if (res.locals.user) {
+         const { updateUser } = require('./user.service');
+         await updateUser(res.locals.user.id, { isLoggedIn: false });
+         return res.status(200).json(createTResult(true));
+     } else {
+         // Maybe passed in body?
+         if (req.body.userId) {
+             const { updateUser } = require('./user.service');
+             await updateUser(req.body.userId, { isLoggedIn: false });
+             return res.status(200).json(createTResult(true));
+         }
+     }
+     
+     return res.status(200).json(createTResult(true)); // Just return specific success even if no-op
+  } catch (error: any) {
+      return res.status(500).json(createTResult("", error.message));
   }
 };
 

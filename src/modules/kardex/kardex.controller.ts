@@ -1,6 +1,6 @@
 import { Request, Response } from "express";
 import { createTResult } from "@src/core/mappers/tresult.mapper";
-import { createKardex, getKardex, getKardexById, updateKardex } from "./kardex.service";
+import { registerCheck, getKardex, getKardexById, updateKardex } from "./kardex.service";
 
 export const createKardexEntry = async (req: Request, res: Response) => {
   try {
@@ -10,7 +10,7 @@ export const createKardexEntry = async (req: Request, res: Response) => {
       return res.status(400).json(createTResult(null, ["userId and locationId are required"]));
     }
 
-    const entry = await createKardex({
+    const entry = await registerCheck({
       userId: Number(userId),
       locationId: Number(locationId),
       notes,
@@ -64,7 +64,13 @@ export const getKardexEntries = async (req: Request, res: Response) => {
 export const getKardexDetail = async (req: Request, res: Response) => {
   try {
     const { id } = req.params;
-    const entry = await getKardexById(Number(id));
+    const numericId = Number(id);
+
+    if (isNaN(numericId)) {
+        return res.status(400).json(createTResult(null, ["Invalid ID"]));
+    }
+
+    const entry = await getKardexById(numericId);
 
     if (!entry) {
       return res.status(404).json(createTResult(null, ["Kardex entry not found"]));
