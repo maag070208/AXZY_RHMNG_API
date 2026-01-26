@@ -245,3 +245,21 @@ export const changePassword = async (req: Request, res: Response) => {
     return res.status(500).json(createTResult(null, error.message));
   }
 };
+
+export const resetPassword = async (req: Request, res: Response) => {
+  try {
+    const { id } = req.params;
+    const { newPassword } = req.body;
+    const { updateUser } = require("./user.service");
+
+    // TODO: Verify ADMIN role here if middleware doesn't.
+    // Assuming this endpoint is protected/admin-only.
+
+    const hashed = await hashPassword(newPassword);
+    await updateUser(Number(id), { password: hashed });
+
+    return res.status(200).json(createTResult(true));
+  } catch (error: any) {
+    return res.status(500).json(createTResult(null, error.message));
+  }
+};

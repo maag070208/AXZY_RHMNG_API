@@ -37,8 +37,9 @@ export default async function (
                  isInShift = currentStr >= startStr && currentStr <= endStr;
              }
              
+             console.log(`Shift Check: Current ${currentStr}, Start ${startStr}, End ${endStr}, IsInShift ${isInShift}`);
              if (!isInShift) {
-                 return res.status(401).json({ msg: 'Fuera de horario de turno' });
+                 return res.status(403).json({ msg: 'Fuera de horario de turno' });
              }
         }
     }
