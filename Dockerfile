@@ -30,7 +30,6 @@ COPY --from=builder /app/package.json ./
 COPY --from=builder /app/swagger.yaml ./
 COPY --from=builder /app/.env ./
 COPY --from=builder /app/dist ./dist
-COPY --from=builder /app/src/public ./dist/src/public
 
 EXPOSE 4321
 
