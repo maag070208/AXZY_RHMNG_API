@@ -8,6 +8,8 @@ import kardexRoute from "./kardex/kardex.routes";
 import assignmentsRoute from "./assignments/assignment.routes";
 import recurringRoute from "./recurring/recurring.routes";
 import incidentRoute from "./incidents/incident.routes";
+import roundRoute from "./rounds/round.routes";
+import scheduleRoute from "./schedules/schedule.routes";
 
 
 const apiRouter = Router();
@@ -20,6 +22,8 @@ apiRouter.use("/kardex", kardexRoute);
 apiRouter.use("/assignments", assignmentsRoute);
 apiRouter.use("/recurring", recurringRoute);
 apiRouter.use("/incidents", incidentRoute);
+apiRouter.use("/rounds", roundRoute);
+apiRouter.use("/schedules", scheduleRoute);
 
 
 export default apiRouter;

@@ -53,6 +53,24 @@ model User {
   recurringConfigurationId Int?
   incidents                Incident[]
   resolvedIncidents        Incident[]               @relation("IncidentResolver")
+  rounds                   Round[]                  @relation("GuardRounds")
+
+  // Schedule Relation
+  scheduleId Int?
+  schedule   Schedule? @relation(fields: [scheduleId], references: [id])
+}
+
+model Schedule {
+  id        Int     @id @default(autoincrement())
+  name      String  @unique // e.g., "Matutino", "Vespertino"
+  startTime String // "07:00"
+  endTime   String // "15:00"
+  active    Boolean @default(true)
+
+  users User[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 }
 
 ////////////////////////////////////////////////////
@@ -204,4 +222,24 @@ model Incident {
 enum IncidentStatus {
   PENDING
   ATTENDED
+}
+
+model Round {
+  id        Int         @id @default(autoincrement())
+  guardId   Int
+  startTime DateTime    @default(now())
+  endTime   DateTime?
+  status    RoundStatus @default(IN_PROGRESS)
+
+  guard User @relation("GuardRounds", fields: [guardId], references: [id])
+}
+
+enum RoundStatus {
+  IN_PROGRESS
+  COMPLETED
+}
+
+model SysConfig {
+  key   String @id
+  value String
 }

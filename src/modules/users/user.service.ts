@@ -3,7 +3,8 @@ import { prismaClient } from "@src/core/config/database";
 export const getUsers = async (search?: string) => {
   if (!search) {
     return prismaClient.user.findMany({
-        orderBy: { name: 'asc' }
+        orderBy: { name: 'asc' },
+        include: { schedule: true }
     });
   }
 
@@ -16,7 +17,8 @@ export const getUsers = async (search?: string) => {
       ]
 
     },
-    orderBy: { name: 'asc' }
+    orderBy: { name: 'asc' },
+    include: { schedule: true }
   });
 };
 
@@ -25,6 +27,9 @@ export const getUserByUsername = async (username: string) => {
     where: {
       username,
     },
+    include: {
+      schedule: true
+    }
   });
 };
 

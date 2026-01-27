@@ -1,159 +1,105 @@
-import path from "path";
-import fs from "fs";
 import { transporter } from "../config/mail";
+import { PrismaClient } from "@prisma/client";
 
-export const sendPaymentEmail = async (data: any, email: string) => {
-  const filePath = path.join(
-    __dirname,
-    "../../public/templates/addPayment.html"
-  );
-  const html = await fs.promises.readFile(filePath, "utf8");
+const prisma = new PrismaClient();
 
-  const personalizedHtml = html
-    .replace("{{name}}", data.name)
-    .replace("{{concept_header}}", data.concept)
-    .replace("{{concept_detail}}", data.concept)
-    .replace(
-      "{{date}}",
-      new Date(data.invoiceDate).toLocaleDateString("es-MX", {
-        year: "numeric",
-        month: "2-digit",
-        day: "2-digit",
-        hour: "2-digit",
-        minute: "2-digit",
-        hour12: false,
-      })
-    )
-    .replace(
-      "{{expiration_date}}",
-      new Date(data.invoiceExpiration).toLocaleDateString("es-MX", {
-        year: "numeric",
-        month: "2-digit",
-        day: "2-digit",
-        hour: "2-digit",
-        minute: "2-digit",
-        hour12: false,
-      })
-    )
-    .replace("{{total}}", data.total);
-
-  console.log("urlPdf", data.pdfUrl);
-  console.log("urlXml", data.xmlUrl);
-
-  const attachments = [];
-
-  if (data.pdfUrl != "") {
-    attachments.push({
-      filename: "factura.pdf",
-      path: data.pdfUrl,
+export const sendIncidentEmail = async (incident: any, guard: any) => {
+  try {
+    // 1. Get recipients from SysConfig
+    const config = await prisma.sysConfig.findUnique({
+      where: { key: "INCIDENT_EMAIL" },
     });
-  }
 
-  if (data.xmlUrl != "") {
-    attachments.push({
-      filename: "factura.xml",
-      path: data.xmlUrl,
-    });
-  }
-  console.log({ attachments });
-  await transporter
-    .sendMail({
+    if (!config || !config.value) {
+      console.warn("No Recipients found for INCIDENT_EMAIL");
+      return;
+    }
+
+    const recipients = config.value.split("|");
+
+    const subject = `⚠️ Nuevo Incidente Reportado: ${incident.title}`;
+
+    // 2. Prepare Media Links
+    let mediaLinks = '<p><em>No hay evidencia adjunta.</em></p>';
+    if (incident.media && Array.isArray(incident.media) && incident.media.length > 0) {
+        mediaLinks = '<ul>';
+        incident.media.forEach((m: any) => {
+            const url = m.url;
+            const type = m.type === 'VIDEO' ? 'Video' : 'Foto';
+            mediaLinks += `<li><a href="${url}" target="_blank">${type} - Ver evidencia</a></li>`;
+        });
+        mediaLinks += '</ul>';
+    }
+
+    // 3. Prepare Email Content with improved design
+    const htmlContent = `
+      <div style="font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; color: #333; max-width: 600px; margin: 0 auto; border: 1px solid #e0e0e0; border-radius: 8px; overflow: hidden;">
+        <div style="background-color: #d9534f; padding: 20px; text-align: center;">
+          <h2 style="color: #ffffff; margin: 0; font-size: 24px;">⚠️ Nuevo Incidente Reportado</h2>
+        </div>
+        
+        <div style="padding: 30px; background-color: #ffffff;">
+          <p style="font-size: 16px; line-height: 1.5; margin-bottom: 20px;">
+            Se ha reportado una nueva incidencia en el sistema. A continuación se detallan los datos registrados por el guardia.
+          </p>
+          
+          <table style="width: 100%; border-collapse: collapse; margin-bottom: 20px;">
+            <tr>
+              <td style="padding: 10px; border-bottom: 1px solid #eee; width: 30%; font-weight: bold; color: #555;">Guardia:</td>
+              <td style="padding: 10px; border-bottom: 1px solid #eee; color: #333;">${guard.name} ${guard.lastName || ''}</td>
+            </tr>
+            <tr>
+              <td style="padding: 10px; border-bottom: 1px solid #eee; font-weight: bold; color: #555;">Fecha:</td>
+              <td style="padding: 10px; border-bottom: 1px solid #eee; color: #333;">${new Date().toLocaleString()}</td>
+            </tr>
+            <tr>
+              <td style="padding: 10px; border-bottom: 1px solid #eee; font-weight: bold; color: #555;">Título:</td>
+              <td style="padding: 10px; border-bottom: 1px solid #eee; color: #333;">${incident.title}</td>
+            </tr>
+            <tr>
+              <td style="padding: 10px; border-bottom: 1px solid #eee; font-weight: bold; color: #555;">Categoría:</td>
+              <td style="padding: 10px; border-bottom: 1px solid #eee; color: #333;">
+                <span style="background-color: #fce4ec; color: #c2185b; padding: 4px 8px; border-radius: 4px; font-size: 12px; font-weight: bold;">
+                  ${incident.category}
+                </span>
+              </td>
+            </tr>
+          </table>
+
+          <div style="margin-bottom: 25px;">
+            <h3 style="color: #d9534f; border-bottom: 2px solid #d9534f; padding-bottom: 5px; margin-bottom: 15px;">Descripción</h3>
+            <blockquote style="background: #f9f9f9; padding: 15px; border-left: 5px solid #d9534f; margin: 0; font-style: italic; color: #555;">
+              ${incident.description || 'Sin descripción'}
+            </blockquote>
+          </div>
+
+          <div style="margin-bottom: 20px;">
+            <h3 style="color: #d9534f; border-bottom: 2px solid #d9534f; padding-bottom: 5px; margin-bottom: 15px;">Evidencias Adjuntas</h3>
+            ${mediaLinks}
+          </div>
+
+          <div style="text-align: center; margin-top: 30px; padding-top: 20px; border-top: 1px solid #eee;">
+             <a href="https://check.axzy.dev" style="background-color: #333; color: #fff; text-decoration: none; padding: 10px 20px; border-radius: 5px; font-weight: bold;">Ir al Panel de Control</a>
+          </div>
+        </div>
+        
+        <div style="background-color: #fcfcfc; padding: 15px; text-align: center; border-top: 1px solid #e0e0e0;">
+          <p style="font-size: 12px; color: #999; margin: 0;">Este es un mensaje automático del sistema de rondas y seguridad.</p>
+        </div>
+      </div>
+    `;
+
+    // 4. Send Email
+    await transporter.sendMail({
       from: "aamaro@axzy.dev",
-      to: email,
-      subject: "Concepto de pago",
-      html: personalizedHtml,
-      attachments: attachments,
-    })
-    .catch((err) => {
-      console.log(err);
+      to: recipients,
+      subject: subject,
+      html: htmlContent,
     });
-};
 
-export const sendPaymentDetailEmail = async (data: any, email: string) => {
-  const filePath = path.join(
-    __dirname,
-    "../../public/templates/addPaymentDetail.html"
-  );
-  console.log(data);
-  const html = await fs.promises.readFile(filePath, "utf8");
-  const personalizedHtml = html
-    .replace("{{name}}", data.payment.client.name)
-    .replace("{{concept_header}}", data.payment.invoiceNumber)
-    .replace(
-      "{{date}}",
-      new Date(data.createdAt).toLocaleDateString("es-MX", {
-        year: "numeric",
-        month: "2-digit",
-        day: "2-digit",
-        hour: "2-digit",
-        minute: "2-digit",
-        hour12: false,
-      })
-    )
-    .replace("{{concept}}", data.concept)
-    .replace("{{total}}", data.payment.total)
-    .replace("{{paid}}", data.payment.paid)
-    .replace("{{amount}}", data.amount)
-    .replace(
-      "{{totalPendingToPaid}}",
-      Number(data.payment.subTotal).toString()
-    );
+    console.log(`Incident email sent to ${recipients.join(", ")}`);
 
-  await transporter
-    .sendMail({
-      from: "aamaro@axzy.dev",
-      to: email,
-      subject: "Detalle de pago",
-      html: personalizedHtml,
-    })
-    .catch((err) => {
-      console.log(err);
-    });
-};
-
-export const sendExpiredPaymentEmail = async (data: any, email: string) => {
-  const filePath = path.join(
-    __dirname,
-    "../../public/templates/expiredPayment.html"
-  );
-  const html = await fs.promises.readFile(filePath, "utf8");
-
-  // Calcular el saldo pendiente
-  const remainingAmount = data.total - data.paid;
-
-  // Formatear valores como moneda MXN
-  const formatCurrency = (amount: number) =>
-    new Intl.NumberFormat("es-MX", {
-      style: "currency",
-      currency: "MXN",
-    }).format(amount);
-
-  const formattedTotal = formatCurrency(data.total);
-  const formattedPaid = formatCurrency(data.paid);
-  const formattedRemaining = formatCurrency(remainingAmount);
-
-  const formattedExpiration = new Date(
-    data.invoiceExpiration
-  ).toLocaleDateString("es-MX", {
-    year: "numeric",
-    month: "long",
-    day: "numeric",
-  });
-
-  const personalizedHtml = html
-    .replace("{{name}}", data.client.name)
-    .replace("{{invoice_number}}", data.invoiceNumber)
-    .replace("{{total}}", formattedTotal)
-    .replace("{{paid}}", formattedPaid)
-    .replace("{{remaining}}", formattedRemaining)
-    .replace("{{invoiceExpiration}}", formattedExpiration);
-
-  await transporter.sendMail({
-    from: "aamaro@axzy.dev",
-    to: email,
-    subject: "⚠️ Aviso: Tu factura ha vencido",
-    html: personalizedHtml,
-  });
-
-  console.log(`Correo enviado a ${email} sobre la factura vencida.`);
+  } catch (error) {
+    console.error("Error sending incident email:", error);
+  }
 };

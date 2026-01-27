@@ -17,6 +17,7 @@ export default async function (
 
     const decoded = await verifyToken(token);
     res.locals.user = decoded;
+    (req as any).user = decoded;
     
     // Shift Validation for Guards
     const user = decoded as any; 

@@ -1,4 +1,5 @@
 import { prismaClient } from "@src/core/config/database";
+import { sendIncidentEmail } from "@src/core/utils/emailSender";
 
 export const createIncident = async (data: {
     guardId: number;
@@ -7,15 +8,23 @@ export const createIncident = async (data: {
     description?: string;
     media?: any;
 }) => {
-    return prismaClient.incident.create({
+    const incident = await prismaClient.incident.create({
         data: {
             guardId: data.guardId,
             title: data.title,
             category: data.category,
             description: data.description,
             media: data.media
+        },
+        include: {
+            guard: true
         }
     });
+
+    // Fire and forget email
+    sendIncidentEmail(incident, incident.guard);
+
+    return incident;
 };
 
 export const getIncidentsByGuard = async (guardId: number) => {

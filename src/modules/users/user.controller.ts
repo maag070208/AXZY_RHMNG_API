@@ -37,13 +37,15 @@ export const login = async (req: Request, res: Response) => {
       // We need to construct full Date objects for comparison
       // If shiftEnd < shiftStart, it implies crossing midnight
 
-      // Check if user has shift defined
-      // If strict compliance is required, we fail if no shift defined. Assuming soft for now or strict?
-      // "define los horarios" implies they should exist.
-      if (user.shiftStart && user.shiftEnd) {
+      // Check if user has shift defined (either direct or via Schedule)
+      const u = user as any;
+      const shiftStart = u.schedule?.startTime || user.shiftStart;
+      const shiftEnd = u.schedule?.endTime || user.shiftEnd;
+
+      if (shiftStart && shiftEnd) {
          const currentStr = now.format('HH:mm');
-         const startStr = user.shiftStart;
-         const endStr = user.shiftEnd;
+         const startStr = shiftStart;
+         const endStr = shiftEnd;
          
          // Simple comparison doesn't work for overnight.
          // Let's use a helper logic:
@@ -61,35 +63,6 @@ export const login = async (req: Request, res: Response) => {
              return res.status(403).json(createTResult("", ["Fuera de horario de turno"]));
          }
 
-         // CHECK CONCURRENCY (Single Guard per Shift)
-         const { getLoggedInGuards } = require('./user.service');
-         const activeGuards = await getLoggedInGuards(user.id);
-         
-         // Convert active guards to see if any are VALIDLY in shift right now.
-         // If a guard is logged in but OUT of shift (forgot logout), they don't count?
-         // User said: "solo se puede loggear un guardia por turno".
-         // If Guard A is logged in and it IS their shift (e.g. they are Morning and it's morning),
-         // then we block.
-         // If Guard B (Morning) tries to login.
-         
-         const conflict = activeGuards.find((g: any) => {
-             if (!g.shiftStart || !g.shiftEnd) return false;
-             
-             // Check if 'g' is currently in shift
-             const gStart = g.shiftStart;
-             const gEnd = g.shiftEnd;
-             let gInShift = false;
-             if (gEnd < gStart) {
-                 gInShift = currentStr >= gStart || currentStr <= gEnd;
-             } else {
-                 gInShift = currentStr >= gStart && currentStr <= gEnd;
-             }
-             return gInShift;
-         });
-
-         if (conflict) {
-             return res.status(403).json(createTResult("", [`El turno ya está ocupado por ${conflict.name} ${conflict.lastName || ''}`]));
-         }
       }
     }
 
@@ -157,7 +130,7 @@ export const getAllUsers = async (req: Request, res: Response) => {
 
 export const createUser = async (req: Request, res: Response) => {
   try {
-    const { name, lastName, username, password, role, shiftStart, shiftEnd } =
+    const { name, lastName, username, password, role, shiftStart, shiftEnd, scheduleId } =
       req.body;
 
     const existing = await getUserByUsername(username);
@@ -178,6 +151,7 @@ export const createUser = async (req: Request, res: Response) => {
       role: role ?? "USER",
       shiftStart,
       shiftEnd,
+      scheduleId: scheduleId ? Number(scheduleId) : undefined
     });
 
     return res.status(201).json(createTResult(user));
@@ -198,7 +172,7 @@ export const getCoachesList = async (req: Request, res: Response) => {
 export const updateUserProfile = async (req: Request, res: Response) => {
   try {
     const { id } = req.params;
-    const { name, lastName, username, shiftStart, shiftEnd } = req.body;
+    const { name, lastName, username, shiftStart, shiftEnd, scheduleId } = req.body;
 
     const { updateUser } = require("./user.service");
 
@@ -208,6 +182,7 @@ export const updateUserProfile = async (req: Request, res: Response) => {
       username,
       shiftStart,
       shiftEnd,
+      scheduleId: scheduleId ? Number(scheduleId) : undefined
     });
 
     // Generate new token with updated info? Or just return success.

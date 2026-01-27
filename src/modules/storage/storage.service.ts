@@ -1,6 +1,8 @@
 import AWS from "aws-sdk";
 import "multer";
 
+import https from "https";
+
 export class StorageService {
   private s3: AWS.S3;
 
@@ -14,6 +16,9 @@ export class StorageService {
       },
       s3ForcePathStyle: true,
       signatureVersion: "v4",
+      httpOptions: {
+        agent: new https.Agent({ keepAlive: true }),
+      },
     });
   }
 
