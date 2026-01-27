@@ -79,7 +79,7 @@ export const sendIncidentEmail = async (incident: any, guard: any) => {
           </div>
 
           <div style="text-align: center; margin-top: 30px; padding-top: 20px; border-top: 1px solid #eee;">
-             <a href="https://check.axzy.dev" style="background-color: #333; color: #fff; text-decoration: none; padding: 10px 20px; border-radius: 5px; font-weight: bold;">Ir al Panel de Control</a>
+             <a href="https://axzycheckui-production.up.railway.app/#/home" style="background-color: #333; color: #fff; text-decoration: none; padding: 10px 20px; border-radius: 5px; font-weight: bold;">Ir al Panel de Control</a>
           </div>
         </div>
         
