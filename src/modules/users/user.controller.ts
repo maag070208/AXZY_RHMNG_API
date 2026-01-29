@@ -11,9 +11,7 @@ import {
 export const login = async (req: Request, res: Response) => {
   try {
     const { username, password } = req.body;
-    console.log({ username, password });
     const user = await getUserByUsername(username);
-    console.log(user);
     if (!user) {
       return res.status(401).json(createTResult("", ["User not found"]));
     }
@@ -24,52 +22,77 @@ export const login = async (req: Request, res: Response) => {
       return res.status(401).json(createTResult("", ["Contraseña invalida"]));
     }
 
-    // Populate shift times from schedule if available
-    const u = user as any;
-    if (u.schedule) {
-        u.shiftStart = u.schedule.startTime;
-        u.shiftEnd = u.schedule.endTime;
-    }
+    console.log("------------------------ USER ------------------------------")
+    console.log("NAME", user.name)
+    console.log("LASTNAME", user.lastName)
+    console.log("USERNAME", user.username)
+    console.log("ROLE", user.role)
+    console.log("------------------------ USER ------------------------------")
 
-    // SHIFT CHECK
+    console.log("------------------------ SCHEDULE ------------------------------")
+    console.log("CURRENT HOUR", new Date().getHours())
+    console.log("START", user?.schedule?.startTime)
+    console.log("END", user?.schedule?.endTime)
+    console.log("------------------------ SCHEDULE ------------------------------")
+
+    // SHIFT CHECK - Validar por horario del schedule
+    // Aplicar a GUARD, SHIFT_GUARD y HEAD_GUARD
     if (user.role === 'GUARD' || user.role === 'SHIFT_GUARD') {
-      const dayjs = require('dayjs');
-      const customParseFormat = require('dayjs/plugin/customParseFormat');
-      const isBetween = require('dayjs/plugin/isBetween');
-      dayjs.extend(customParseFormat);
-      dayjs.extend(isBetween);
+      // Verificar que el usuario tenga un schedule asignado
+      if (!user.schedule) {
+        return res.status(403).json(createTResult("", ["No tiene un horario asignado"]));
+      }
 
-      const now = dayjs();
-      // Handle the case where shiftEnd is '07:00' (next day) and shiftStart is '23:00'
-      // We need to construct full Date objects for comparison
-      // If shiftEnd < shiftStart, it implies crossing midnight
+      const shiftStart = user.schedule.startTime;
+      const shiftEnd = user.schedule.endTime;
 
-      // Check if user has shift defined (either direct or via Schedule)
-      const u = user as any;
-      const shiftStart = u.schedule?.startTime || user.shiftStart;
-      const shiftEnd = u.schedule?.endTime || user.shiftEnd;
+      // Validar que los horarios existan
+      if (!shiftStart || !shiftEnd) {
+        return res.status(403).json(createTResult("", ["Horario no configurado correctamente"]));
+      }
 
-      if (shiftStart && shiftEnd) {
-         const currentStr = now.format('HH:mm');
-         const startStr = shiftStart;
-         const endStr = shiftEnd;
-         
-         // Simple comparison doesn't work for overnight.
-         // Let's use a helper logic:
-         let isInShift = false;
-         if (endStr < startStr) {
-             // Overnight shift (e.g. 23:00 to 07:00)
-             // Valid if now >= 23:00 OR now <= 07:00
-             isInShift = currentStr >= startStr || currentStr <= endStr;
-         } else {
-             // Normal shift (e.g. 07:00 to 15:00)
-             isInShift = currentStr >= startStr && currentStr <= endStr;
-         }
+      // Obtener hora actual en formato HH:mm
+      const now = new Date();
+      const currentHour = now.getHours().toString().padStart(2, '0');
+      const currentMinute = now.getMinutes().toString().padStart(2, '0');
+      const currentTime = `${currentHour}:${currentMinute}`;
+      
+      // Convertir a minutos para comparación numérica
+      const currentTotalMinutes = now.getHours() * 60 + now.getMinutes();
+      
+      // Convertir horarios del schedule a minutos
+      const [startHour, startMinute] = shiftStart.split(':').map(Number);
+      const [endHour, endMinute] = shiftEnd.split(':').map(Number);
+      const startTotalMinutes = startHour * 60 + startMinute;
+      const endTotalMinutes = endHour * 60 + endMinute;
+      
+      let isInShift = false;
+      
+      // Lógica para turnos nocturnos (que cruzan la medianoche)
+      if (endTotalMinutes < startTotalMinutes) {
+        // Turno nocturno (ej. 23:00 a 07:00)
+        // Válido si la hora actual es >= inicio O <= fin
+        isInShift = currentTotalMinutes >= startTotalMinutes || 
+                    currentTotalMinutes <= endTotalMinutes;
+      } else {
+        // Turno normal (ej. 15:00 a 23:00)
+        // Válido si la hora actual está entre inicio y fin
+        isInShift = currentTotalMinutes >= startTotalMinutes && 
+                    currentTotalMinutes <= endTotalMinutes;
+      }
 
-         if (!isInShift) {
-             return res.status(403).json(createTResult("", ["Fuera de horario de turno"]));
-         }
+      // Logs para depuración
+      console.log("DEBUG - Validación de horario:");
+      console.log("Hora actual:", currentTime);
+      console.log("Turno asignado:", `${shiftStart} - ${shiftEnd}`);
+      console.log("Minutos actual:", currentTotalMinutes);
+      console.log("Minutos inicio:", startTotalMinutes);
+      console.log("Minutos fin:", endTotalMinutes);
+      console.log("¿Turno nocturno?:", endTotalMinutes < startTotalMinutes);
+      console.log("¿Dentro del horario?:", isInShift);
 
+      if (!isInShift) {
+        return res.status(403).json(createTResult("", ["Fuera de horario de turno"]));
       }
     }
 
