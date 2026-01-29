@@ -24,6 +24,13 @@ export const login = async (req: Request, res: Response) => {
       return res.status(401).json(createTResult("", ["Contraseña invalida"]));
     }
 
+    // Populate shift times from schedule if available
+    const u = user as any;
+    if (u.schedule) {
+        u.shiftStart = u.schedule.startTime;
+        u.shiftEnd = u.schedule.endTime;
+    }
+
     // SHIFT CHECK
     if (user.role === 'GUARD' || user.role === 'SHIFT_GUARD') {
       const dayjs = require('dayjs');
