@@ -30,14 +30,13 @@ export const login = async (req: Request, res: Response) => {
     console.log("------------------------ USER ------------------------------")
 
     console.log("------------------------ SCHEDULE ------------------------------")
-    console.log("CURRENT HOUR", new Date().getHours())
     console.log("START", user?.schedule?.startTime)
     console.log("END", user?.schedule?.endTime)
     console.log("------------------------ SCHEDULE ------------------------------")
 
     // SHIFT CHECK - Validar por horario del schedule
     // Aplicar a GUARD, SHIFT_GUARD y HEAD_GUARD
-    if (user.role === 'GUARD' || user.role === 'SHIFT_GUARD') {
+    if (user.role === 'GUARD' || user.role === 'SHIFT_GUARD' ) {
       // Verificar que el usuario tenga un schedule asignado
       if (!user.schedule) {
         return res.status(403).json(createTResult("", ["No tiene un horario asignado"]));
@@ -51,14 +50,33 @@ export const login = async (req: Request, res: Response) => {
         return res.status(403).json(createTResult("", ["Horario no configurado correctamente"]));
       }
 
-      // Obtener hora actual en formato HH:mm
+      // Obtener hora actual en Tijuana (America/Tijuana)
       const now = new Date();
-      const currentHour = now.getHours().toString().padStart(2, '0');
-      const currentMinute = now.getMinutes().toString().padStart(2, '0');
-      const currentTime = `${currentHour}:${currentMinute}`;
       
-      // Convertir a minutos para comparación numérica
-      const currentTotalMinutes = now.getHours() * 60 + now.getMinutes();
+      // También podemos usar Intl.DateTimeFormat para más control
+      const tijuanaFormatter = new Intl.DateTimeFormat('en-US', {
+        timeZone: 'America/Tijuana',
+        hour: '2-digit',
+        minute: '2-digit',
+        hour12: false
+      });
+      
+      const tijuanaTimeParts = tijuanaFormatter.formatToParts(now);
+      const tijuanaHour = parseInt(tijuanaTimeParts.find(part => part.type === 'hour')?.value || '0');
+      const tijuanaMinute = parseInt(tijuanaTimeParts.find(part => part.type === 'minute')?.value || '0');
+      
+      // Formato HH:mm para Tijuana
+      const currentHourStr = tijuanaHour.toString().padStart(2, '0');
+      const currentMinuteStr = tijuanaMinute.toString().padStart(2, '0');
+      const currentTime = `${currentHourStr}:${currentMinuteStr}`;
+      
+      // Minutos totales en Tijuana
+      const currentTotalMinutes = tijuanaHour * 60 + tijuanaMinute;
+      
+      // Otra opción: usar getHours/minutes del objeto Date ajustado
+      const tijuanaDate = new Date(now.toLocaleString('en-US', { timeZone: 'America/Tijuana' }));
+      const altTijuanaHour = tijuanaDate.getHours();
+      const altTijuanaMinute = tijuanaDate.getMinutes();
       
       // Convertir horarios del schedule a minutos
       const [startHour, startMinute] = shiftStart.split(':').map(Number);
@@ -83,9 +101,11 @@ export const login = async (req: Request, res: Response) => {
 
       // Logs para depuración
       console.log("DEBUG - Validación de horario:");
-      console.log("Hora actual:", currentTime);
+      console.log("Hora UTC:", now.getHours().toString().padStart(2, '0') + ':' + now.getMinutes().toString().padStart(2, '0'));
+      console.log("Hora Tijuana:", currentTime);
+      console.log("Hora Tijuana (alternativa):", altTijuanaHour.toString().padStart(2, '0') + ':' + altTijuanaMinute.toString().padStart(2, '0'));
       console.log("Turno asignado:", `${shiftStart} - ${shiftEnd}`);
-      console.log("Minutos actual:", currentTotalMinutes);
+      console.log("Minutos actual en Tijuana:", currentTotalMinutes);
       console.log("Minutos inicio:", startTotalMinutes);
       console.log("Minutos fin:", endTotalMinutes);
       console.log("¿Turno nocturno?:", endTotalMinutes < startTotalMinutes);
