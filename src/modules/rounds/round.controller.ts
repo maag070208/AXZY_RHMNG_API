@@ -2,12 +2,14 @@ import { Request, Response } from 'express';
 import * as roundService from './round.service';
 
 export const startRound = async (req: Request, res: Response) => {
-  const { guardId } = req.body;
+  const { guardId, recurringConfigId } = req.body;
   // If coming from middleware, we might use req.user.id, but let's support body for flexibility or confirm middleware usage later.
   // Assuming req.user exists if authenticated.
   const userId = (req as any).user?.id || guardId;
 
-  const result = await roundService.startRound(Number(userId));
+  const configId = recurringConfigId ? Number(recurringConfigId) : undefined;
+
+  const result = await roundService.startRound(Number(userId), configId);
   return res.status(result.success ? 200 : 400).json(result);
 };
 

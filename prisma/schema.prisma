@@ -173,6 +173,7 @@ model RecurringConfiguration {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
   users     User[]
+  rounds    Round[]
 }
 
 model RecurringLocation {
@@ -232,6 +233,9 @@ model Round {
   status    RoundStatus @default(IN_PROGRESS)
 
   guard User @relation("GuardRounds", fields: [guardId], references: [id])
+
+  recurringConfigurationId Int?
+  recurringConfiguration   RecurringConfiguration? @relation(fields: [recurringConfigurationId], references: [id])
 }
 
 enum RoundStatus {

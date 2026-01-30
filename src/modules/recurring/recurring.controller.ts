@@ -13,14 +13,14 @@ export const getRecurringList = async (req: Request, res: Response) => {
 
 export const createRecurring = async (req: Request, res: Response) => {
   try {
-    const { title, locations } = req.body;
+    const { title, locations, guardIds } = req.body;
     
     // locations should be: { locationId: number, tasks: { description: string, reqPhoto: boolean }[] }[]
     if (!title || !locations || !Array.isArray(locations)) {
         return res.status(400).json(createTResult(null, ["Invalid payload"]));
     }
 
-    const created = await createRecurringConfiguration(title, locations);
+    const created = await createRecurringConfiguration(title, locations, guardIds);
     return res.status(201).json(createTResult(created));
   } catch (error: any) {
     console.log(error);
@@ -42,13 +42,13 @@ export const toggleRecurring = async (req: Request, res: Response) => {
 export const updateRecurring = async (req: Request, res: Response) => {
     try {
         const { id } = req.params;
-        const { title, locations } = req.body;
+        const { title, locations, guardIds } = req.body;
         
         if (!title || !locations || !Array.isArray(locations)) {
              return res.status(400).json(createTResult(null, ["Invalid payload"]));
         }
 
-        const updated = await updateRecurringConfiguration(Number(id), title, locations);
+        const updated = await updateRecurringConfiguration(Number(id), title, locations, guardIds);
         return res.status(200).json(createTResult(updated));
     } catch (error: any) {
         return res.status(500).json(createTResult(null, error.message));

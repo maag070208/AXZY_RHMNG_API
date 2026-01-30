@@ -3,7 +3,7 @@ import { PrismaClient } from '@prisma/client';
 import { TResult } from '@src/core/dto/TResult';
 const prisma = new PrismaClient();
 
-export const startRound = async (guardId: number): Promise<TResult<any>> => {
+export const startRound = async (guardId: number, recurringConfigId?: number): Promise<TResult<any>> => {
   try {
     const today = new Date();
     today.setHours(0, 0, 0, 0);
@@ -11,81 +11,145 @@ export const startRound = async (guardId: number): Promise<TResult<any>> => {
     const tomorrow = new Date(today);
     tomorrow.setDate(tomorrow.getDate() + 1);
 
-    // 0. Get Guard info to know the Schedule
+    // 0. Get Guard info
     const guard = await prisma.user.findUnique({
-        where: { id: guardId }
+        where: { id: guardId },
+        include: { recurringConfigurations: true }
     });
 
     if (!guard) {
         return { success: false, data: null, messages: ['Guardia no encontrado'] };
     }
 
-    // Define filter for Schedule (if no schedule, match all? or match others with no schedule?)
-    // Requirement: "Solo un guardia POR TURNO".
-    // If scheduleId exists, check only that schedule.
-    // If scheduleId is null, we might fallback to global or legacy check.
-    // For now, if scheduleId is present, we enforce per-schedule.
-    
-    const scheduleFilter = guard.scheduleId 
-        ? { scheduleId: guard.scheduleId } 
-        : {}; // If no schedule, maybe check all? Or just legacy behavior (global).
-
-    // 1. Check if there is ANY active round FOR THIS SCHEDULE
-    const activeRound = await prisma.round.findFirst({
+    // 1. STRICT REQUIREMENT: Only 1 active round per guard
+    let activeRound = await prisma.round.findFirst({
         where: {
-            status: 'IN_PROGRESS',
-            guard: {
-                // If guard has schedule, match that. If not, this empty object effectively matches any? 
-                // Wait, empty object in relation filter doesn't filter.
-                // We want: if guard.scheduleId is set, match guards with same scheduleId.
-                // If guard.scheduleId is null, maybe just check global? The user wants "Por Turno".
-                // Let's rely on explicit IDs.
-               ...(guard.scheduleId ? { scheduleId: guard.scheduleId } : {})
-            }
+            guardId,
+            status: 'IN_PROGRESS'
         },
-        include: { guard: true }
+        include: { guard: true, recurringConfiguration: true }
     });
 
     if (activeRound) {
-        // Refine message to be clearer
-        const scheduleName = activeRound.guard.scheduleId === guard.scheduleId ? "del mismo turno" : "";
-        return {
-            success: false,
-            messages: [`Hay una ronda en curso por ${activeRound.guard.name} (${scheduleName || 'global'}). Solo una ronda permitida por turno.`],
-            data: activeRound,
-        };
+        // Validation: Check if the active round is "stale" or from a previous shift/schedule
+        // Heuristic 1: Duration > 14 hours (Safe max shift length)
+        const now = new Date();
+        const durationHours = (now.getTime() - activeRound.startTime.getTime()) / (1000 * 60 * 60);
+        
+        // Heuristic 2: Switching Routes (If user explicitly selected a DIFFERENT route)
+        // If we have an active round for Route A, and are starting Route B, we should probably close A.
+        const isDifferentRoute = recurringConfigId && activeRound.recurringConfigurationId !== recurringConfigId;
+
+        if (durationHours > 14 || isDifferentRoute) {
+            // Auto-Close Stale/Different Round
+            await prisma.round.update({
+                where: { id: activeRound.id },
+                data: { 
+                    status: 'COMPLETED', 
+                    endTime: new Date() 
+                }
+            });
+            // Reset activeRound so we can create a new one below
+            activeRound = null; 
+        } else {
+             // It's a recent, same-route round. Block creation.
+             return {
+                success: false,
+                messages: [`Ya tienes una ronda activa: ${activeRound.recurringConfiguration?.title || 'Sin Ruta'}. Termínala antes de iniciar otra.`],
+                data: activeRound,
+            };
+        }
     }
 
-    // 2. Check if there is ANY completed round TODAY FOR THIS SCHEDULE
-    const completedRoundToday = await prisma.round.findFirst({
-      where: {
-        status: 'COMPLETED',
-        startTime: {
-          gte: today,
-          lt: tomorrow,
-        },
-        guard: {
-             ...(guard.scheduleId ? { scheduleId: guard.scheduleId } : {})
+    // 2. Validate Recurring Config (Route)
+    // If recurringConfigId is provided, check if it's assigned to the guard
+    if (recurringConfigId) {
+        const isAssigned = guard.recurringConfigurations.some(rc => rc.id === recurringConfigId);
+        if (!isAssigned) {
+             // Fallback: check if it's assigned via global query just in case, but usually user.recurringConfigurations is enough if loaded
+             // Actually `include: { recurringConfigurations: true }` fetches the relation.
+             return { success: false, messages: ['No tienes asignada esta ruta o no existe.'], data: null };
         }
-      },
-      include: { guard: true }
+    } else {
+        // If NO config provided, we have a dilemma as per user request.
+        // "Ningun guardia puede tener mas de 1 RUTA activa. Al darle al boton... mostrarle cual ruta quiere iniciar"
+        // This implies they MUST select a route if they have options.
+        // If they have only 1 assignment, maybe auto-select?
+        // If they have 0, maybe allow generic round?
+        
+        if (guard.recurringConfigurations.length === 1) {
+            recurringConfigId = guard.recurringConfigurations[0].id;
+        } else if (guard.recurringConfigurations.length > 1) {
+             return { success: false, messages: ['Debes especificar qué ruta deseas iniciar.'], data: null }; // Frontend handles selection
+        }
+        // If 0, proceed as generic round (legacy support)
+    }
+
+    // 4. CHECK RE-ENTRY Rule (Cooldown)
+    // "Guard finishes round -> Wait 2 hours -> Can start again"
+    // AND "Provided it is not taken by another guard" (This is handled by logic that might need to be added if rounds are shared, 
+    // but assuming for now specific assignments just need cooldown).
+    
+    // Check if THIS route (recurringConfigId) is currently Active by ANYONE else
+    if (recurringConfigId) {
+        const routeActiveByOther = await prisma.round.findFirst({
+            where: {
+                recurringConfigurationId: recurringConfigId,
+                status: 'IN_PROGRESS',
+                guardId: { not: guardId } // Someone else
+            },
+            include: { guard: true }
+        });
+        
+        if (routeActiveByOther) {
+             return {
+                success: false,
+                messages: [`Esta ruta ya está siendo recorrida por ${routeActiveByOther.guard.name}.`],
+                data: null
+            };
+        }
+    }
+
+    // Check Cooldown for THIS guard on THIS route (or any route? User said "when guard finishes the round... can start IT again")
+    // Let's assume per-route cooldown.
+    
+    const lastCompletedRound = await prisma.round.findFirst({
+        where: {
+            guardId,
+            status: 'COMPLETED',
+            recurringConfigurationId: recurringConfigId, // Specific route
+            startTime: { gte: today } // Only check today? Or absolute 2 hours? "despues de 2 horas puede volver". Usually implies absolute time.
+            // If checking absolute time, we don't need 'today' filter on startTime necessarily, but usually shifts are daily.
+            // Let's keep 'today' scope to avoid fetching old history, assuming shifts don't span days weirdly.
+        },
+        orderBy: { endTime: 'desc' }
     });
 
-    if (completedRoundToday) {
-         return {
-            success: false,
-            messages: ['Ya se ha completado la ronda del día para este turno.'],
-            data: completedRoundToday,
-          };
+    if (lastCompletedRound && lastCompletedRound.endTime) {
+        const now = new Date();
+        const diffMs = now.getTime() - lastCompletedRound.endTime.getTime();
+        const diffMinutes = diffMs / (1000 * 60);
+        const COOLDOWN_MINUTES = 5; // Configurable
+
+        if (diffMinutes < COOLDOWN_MINUTES) {
+             const remainingMinutes = Math.ceil(COOLDOWN_MINUTES - diffMinutes);
+             return {
+                success: false,
+                messages: [`Debes esperar ${COOLDOWN_MINUTES} minutos para reiniciar esta ruta. Faltan ${remainingMinutes} minutos.`],
+                data: lastCompletedRound
+             };
+        }
     }
 
+    // 3. Create new Round (Existing logic matches)
     const newRound = await prisma.round.create({
       data: {
         guardId,
         status: 'IN_PROGRESS',
         startTime: new Date(),
+        recurringConfigurationId: recurringConfigId
       },
-      include: { guard: true }
+      include: { guard: true, recurringConfiguration: true }
     });
 
     return {
@@ -146,24 +210,54 @@ export const getCurrentRound = async (guardId: number): Promise<TResult<any>> =>
         const tomorrow = new Date(today);
         tomorrow.setDate(tomorrow.getDate() + 1);
 
-        // Fetch the LATEST GLOBAL round for TODAY (Active OR Completed)
-        const round = await prisma.round.findFirst({
+        // Fetch the LATEST round for THIS GUARD for TODAY (Active OR Completed)
+        let round = await prisma.round.findFirst({
             where: {
+                guardId, // Added filter
                 startTime: {
-                    gte: today,
-                    lt: tomorrow,
+                    gte: today, // Only from today? 
+                    // Actually, if we want to catch "stale" rounds from Yesterday that are still active,
+                    // we should probably NOT filter by 'today' strictly for the "IN_PROGRESS" check.
+                    // But legacy logic filters today. 
+                    // Let's widen the search for IN_PROGRESS items to catch stale ones.
                 },
             },
             include: {
-                guard: true
+                guard: true,
+                recurringConfiguration: true
             },
             orderBy: {
                 startTime: 'desc'
             }
         });
+        
+        // If we didn't find one today, let's check if there is ANY active round (even yesterday's) to auto-close
+        if (!round) {
+             const anyActive = await prisma.round.findFirst({
+                 where: { guardId, status: 'IN_PROGRESS' },
+                 include: { guard: true, recurringConfiguration: true },
+                 orderBy: { startTime: 'desc' }
+             });
+             if (anyActive) round = anyActive;
+        }
 
         if (!round) {
             return { success: true, data: null, messages: ['No hay ronda activa hoy'] };
+        }
+        
+        // Check Stale in getCurrentRound too
+        if (round.status === 'IN_PROGRESS') {
+             const now = new Date();
+             const durationHours = (now.getTime() - round.startTime.getTime()) / (1000 * 60 * 60);
+             if (durationHours > 14) {
+                 // Auto-close logic
+                 await prisma.round.update({
+                    where: { id: round.id },
+                    data: { status: 'COMPLETED', endTime: new Date() }
+                 });
+                 // Return null as if no round is active
+                 return { success: true, data: null, messages: ['Ronda anterior cerrada por tiempo'] };
+             }
         }
 
         return { success: true, data: round, messages: [] };
@@ -178,8 +272,14 @@ export const getRounds = async (dateStr?: string, guardId?: number): Promise<TRe
         if (dateStr) {
             const start = new Date(dateStr);
             start.setHours(0, 0, 0, 0);
+            
+            // Extend window to cover timezone differences (e.g. UTC-6 late rounds are "next day" in UTC)
+            // We search from [Selected Day 00:00 UTC] to [Next Day 12:00 UTC]
+            // This ensures we catch late shifts that are technically "tomorrow" in UTC but "today" locally.
             const end = new Date(start);
             end.setDate(end.getDate() + 1);
+            end.setHours(12, 0, 0, 0); 
+
             dateFilter = {
                 startTime: {
                     gte: start,

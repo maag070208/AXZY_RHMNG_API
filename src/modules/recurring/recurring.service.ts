@@ -39,26 +39,35 @@ interface ILocationCreate {
     tasks: ITaskCreate[];
 }
 
-export const createRecurringConfiguration = async (title: string, locations: ILocationCreate[]) => {
-    // 1. Fetch all guards to auto-assign
-    const guards = await prismaClient.user.findMany({
-        where: {
-            active: true,
-            role: {
-                in: ['GUARD', 'SHIFT_GUARD']
-            }
-        },
-        select: { id: true }
-    });
+export const createRecurringConfiguration = async (title: string, locations: ILocationCreate[], guardIds?: number[]) => {
+    // If guardIds is provided, use it. Otherwise, fetch all guards (legacy behavior or default) ->
+    // Actually, request says "por defecto estaran seleccionados todos", so the UI will send all IDs.
+    // If we want to support "select all if empty", we can keep the logic, but better to rely on input.
+    
+    let guardsToConnect: { id: number }[] = [];
 
-    const guardIds = guards.map(g => ({ id: g.id }));
+    if (guardIds && guardIds.length > 0) {
+        guardsToConnect = guardIds.map(id => ({ id }));
+    } else {
+        // Fallback: Assign to ALL guards if none provided? Or none?
+        // Let's keep the existing logic as a fallback for backward compatibility if needed, 
+        // OR just assign none. given constraints, let's assign ALL if null/undefined to match previous behavior,
+        // but if empty array is passed, it means "no guards".
+        if (guardIds === undefined) { 
+             const allGuards = await prismaClient.user.findMany({
+                where: { active: true, role: { in: ['GUARD', 'SHIFT_GUARD'] } },
+                select: { id: true }
+            });
+            guardsToConnect = allGuards.map(g => ({ id: g.id }));
+        }
+    }
 
     return prismaClient.recurringConfiguration.create({
         data: {
             title,
             active: true,
             guards: {
-                connect: guardIds
+                connect: guardsToConnect
             },
             recurringLocations: {
                 create: locations.map(loc => ({
@@ -90,9 +99,6 @@ export const toggleRecurringConfiguration = async (id: number, active: boolean) 
 };
 
 export const deleteRecurringConfiguration = async (id: number) => {
-    // Cascading delete needs to be handled either by DB or Prisma
-    // If not set in schema, we must delete children first.
-    
     const config = await prismaClient.recurringConfiguration.findUnique({
         where: { id },
         include: { recurringLocations: { include: { tasks: true } } }
@@ -109,8 +115,6 @@ export const deleteRecurringConfiguration = async (id: number) => {
 };
 
 export const assignConfigurationToGuards = async (configId: number, guardIds: number[]) => {
-    // Reset existing assignments if needed or just add. 
-    // Usually "set" (replace) is safer for this UI.
     return prismaClient.recurringConfiguration.update({
         where: { id: configId },
         data: {
@@ -122,18 +126,25 @@ export const assignConfigurationToGuards = async (configId: number, guardIds: nu
     });
 };
 
-export const updateRecurringConfiguration = async (id: number, title: string, locations: ILocationCreate[]) => {
+export const updateRecurringConfiguration = async (id: number, title: string, locations: ILocationCreate[], guardIds?: number[]) => {
     // Transaction to ensure atomicity
     return prismaClient.$transaction(async (prisma) => {
         // 1. Update basic info
+        const dataToUpdate: any = { title };
+        
+        // If guardIds is provided (even if empty array), update the list.
+        if (guardIds !== undefined) {
+            dataToUpdate.guards = {
+                set: guardIds.map(gid => ({ id: gid }))
+            };
+        }
+
         const updatedConfig = await prisma.recurringConfiguration.update({
             where: { id },
-            data: { title }
+            data: dataToUpdate
         });
 
         // 2. Delete existing locations (and tasks via cascade usually, but manual here to be safe)
-        // First get IDs to delete tasks? Prims schema doesn't show cascade explicitly on DB level maybe.
-        // Let's find them first.
         const existingLocs = await prisma.recurringLocation.findMany({ where: { configurationId: id } });
         for (const loc of existingLocs) {
             await prisma.recurringTask.deleteMany({ where: { recurringLocationId: loc.id } });
@@ -191,17 +202,23 @@ export const getRecurringConfigurationsForUser = async (userId: number) => {
     });
 
     // Check completion status for today
+    // Check completion status relative to Active Round
+    // If usage context: "Round Based", we should only count scans that happened AFTER the round started.
+    // If no round active, we default to today (show history/completed).
+    const activeRound = await prismaClient.round.findFirst({
+        where: { guardId: userId, status: 'IN_PROGRESS' }
+    });
+
+    const filterDate = activeRound ? activeRound.startTime : today;
+
     const enrichedConfigs = await Promise.all(configs.map(async (config) => {
         const enrichedLocations = await Promise.all(config.recurringLocations.map(async (loc) => {
-            // Check if there is a Kardex entry for this location today by this user (or generally completed if shared?)
-            // Requirement: "Guard needs to report". Usually recurring implies checking if *this specific guard* or *any guard* checked it.
-            // Assuming simplified "scanned today" logic.
             const scan = await prismaClient.kardex.findFirst({
                 where: {
                     locationId: loc.locationId,
-                    userId: userId, // CRITICAL: Check only for this user's scans
+                    userId: userId, 
                     timestamp: {
-                        gte: today
+                        gte: filterDate // Use dynamic filter date
                     },
                     // Ensure it is a completed report (not a draft with empty notes)
                     notes: {
