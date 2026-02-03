@@ -129,7 +129,7 @@ export const startRound = async (guardId: number, recurringConfigId?: number): P
         const now = new Date();
         const diffMs = now.getTime() - lastCompletedRound.endTime.getTime();
         const diffMinutes = diffMs / (1000 * 60);
-        const COOLDOWN_MINUTES = 5; // Configurable
+        const COOLDOWN_MINUTES = 25; // Configurable
 
         if (diffMinutes < COOLDOWN_MINUTES) {
              const remainingMinutes = Math.ceil(COOLDOWN_MINUTES - diffMinutes);
@@ -298,7 +298,8 @@ export const getRounds = async (dateStr?: string, guardId?: number): Promise<TRe
             include: {
                 guard: {
                     select: { id: true, name: true, lastName: true }
-                }
+                },
+                recurringConfiguration: true
             },
             orderBy: {
                 startTime: 'desc'
@@ -319,7 +320,8 @@ export const getRoundDetail = async (roundId: number): Promise<TResult<any>> => 
             include: {
                 guard: {
                     select: { id: true, name: true, lastName: true }
-                }
+                },
+                recurringConfiguration: true
             }
         });
 
@@ -330,10 +332,11 @@ export const getRoundDetail = async (roundId: number): Promise<TResult<any>> => 
         const start = round.startTime;
         const end = round.endTime || new Date();
 
-        // 1. Fetch Scans (Kardex) in range
+        // 1. Fetch Scans (Kardex) in range AND by this Guard
         const scans = await prisma.kardex.findMany({
             where: {
-                timestamp: { gte: start, lte: end }
+                timestamp: { gte: start, lte: end },
+                userId: round.guardId
             },
             include: {
                 location: true,
@@ -347,13 +350,14 @@ export const getRoundDetail = async (roundId: number): Promise<TResult<any>> => 
             orderBy: { timestamp: 'asc' }
         });
 
-        // 2. Fetch Incidents in range
+        // 2. Fetch Incidents in range AND by this Guard
         const incidents = await prisma.incident.findMany({
             where: {
-                createdAt: { gte: start, lte: end }
+                createdAt: { gte: start, lte: end },
+                guardId: round.guardId
             },
             include: {
-                guard: { select: { id: true, name: true, lastName: true } } // Assuming relation is named 'guard' based on schema
+                guard: { select: { id: true, name: true, lastName: true } }
             },
             orderBy: { createdAt: 'asc' }
         });

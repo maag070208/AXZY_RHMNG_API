@@ -201,7 +201,6 @@ export const getRecurringConfigurationsForUser = async (userId: number) => {
         }
     });
 
-    // Check completion status for today
     // Check completion status relative to Active Round
     // If usage context: "Round Based", we should only count scans that happened AFTER the round started.
     // If no round active, we default to today (show history/completed).
