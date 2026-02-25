@@ -10,6 +10,7 @@ import recurringRoute from "./recurring/recurring.routes";
 import incidentRoute from "./incidents/incident.routes";
 import roundRoute from "./rounds/round.routes";
 import scheduleRoute from "./schedules/schedule.routes";
+import maintenanceRoute from "./maintenance/maintenance.routes";
 
 
 const apiRouter = Router();
@@ -24,6 +25,7 @@ apiRouter.use("/recurring", recurringRoute);
 apiRouter.use("/incidents", incidentRoute);
 apiRouter.use("/rounds", roundRoute);
 apiRouter.use("/schedules", scheduleRoute);
+apiRouter.use("/maintenance", maintenanceRoute);
 
 
 export default apiRouter;

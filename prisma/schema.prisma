@@ -53,6 +53,8 @@ model User {
   recurringConfigurationId Int?
   incidents                Incident[]
   resolvedIncidents        Incident[]               @relation("IncidentResolver")
+  maintenances             Maintenance[]
+  resolvedMaintenances     Maintenance[]            @relation("MaintenanceResolver")
   rounds                   Round[]                  @relation("GuardRounds")
 
   // Schedule Relation
@@ -246,4 +248,27 @@ enum RoundStatus {
 model SysConfig {
   key   String @id
   value String
+}
+
+model Maintenance {
+  id           Int               @id @default(autoincrement())
+  guardId      Int
+  title        String
+  category     String
+  description  String?           @db.Text
+  media        Json? // Array of { type: 'IMAGE' | 'VIDEO', url: 'string' }
+  status       MaintenanceStatus @default(PENDING)
+  resolvedAt   DateTime?
+  resolvedById Int?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  guard      User  @relation(fields: [guardId], references: [id])
+  resolvedBy User? @relation("MaintenanceResolver", fields: [resolvedById], references: [id])
+}
+
+enum MaintenanceStatus {
+  PENDING
+  ATTENDED
 }

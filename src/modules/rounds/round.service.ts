@@ -110,36 +110,7 @@ export const startRound = async (guardId: number, recurringConfigId?: number): P
         }
     }
 
-    // Check Cooldown for THIS guard on THIS route (or any route? User said "when guard finishes the round... can start IT again")
-    // Let's assume per-route cooldown.
-    
-    const lastCompletedRound = await prisma.round.findFirst({
-        where: {
-            guardId,
-            status: 'COMPLETED',
-            recurringConfigurationId: recurringConfigId, // Specific route
-            startTime: { gte: today } // Only check today? Or absolute 2 hours? "despues de 2 horas puede volver". Usually implies absolute time.
-            // If checking absolute time, we don't need 'today' filter on startTime necessarily, but usually shifts are daily.
-            // Let's keep 'today' scope to avoid fetching old history, assuming shifts don't span days weirdly.
-        },
-        orderBy: { endTime: 'desc' }
-    });
-
-    if (lastCompletedRound && lastCompletedRound.endTime) {
-        const now = new Date();
-        const diffMs = now.getTime() - lastCompletedRound.endTime.getTime();
-        const diffMinutes = diffMs / (1000 * 60);
-        const COOLDOWN_MINUTES = 25; // Configurable
-
-        if (diffMinutes < COOLDOWN_MINUTES) {
-             const remainingMinutes = Math.ceil(COOLDOWN_MINUTES - diffMinutes);
-             return {
-                success: false,
-                messages: [`Debes esperar ${COOLDOWN_MINUTES} minutos para reiniciar esta ruta. Faltan ${remainingMinutes} minutos.`],
-                data: lastCompletedRound
-             };
-        }
-    }
+    // 4. CHECK RE-ENTRY Rule (Cooldown) - REMOVED AS PER REQUEST
 
     // 3. Create new Round (Existing logic matches)
     const newRound = await prisma.round.create({
@@ -350,17 +321,7 @@ export const getRoundDetail = async (roundId: number): Promise<TResult<any>> => 
             orderBy: { timestamp: 'asc' }
         });
 
-        // 2. Fetch Incidents in range AND by this Guard
-        const incidents = await prisma.incident.findMany({
-            where: {
-                createdAt: { gte: start, lte: end },
-                guardId: round.guardId
-            },
-            include: {
-                guard: { select: { id: true, name: true, lastName: true } }
-            },
-            orderBy: { createdAt: 'asc' }
-        });
+        // 2. Fetch Incidents logic removed: Incidents and Maintenances are separate from Rounds.
 
         // 3. Construct Timeline
         const timeline: any[] = [];
@@ -385,16 +346,7 @@ export const getRoundDetail = async (roundId: number): Promise<TResult<any>> => 
             });
         });
 
-        // Add Incidents
-        incidents.forEach(inc => {
-            timeline.push({
-                type: 'INCIDENT',
-                timestamp: inc.createdAt, 
-                description: `Incidencia: ${inc.title} (${inc.category})`,
-                guard: inc.guard, // Needs verifying schema relation name
-                data: inc
-            });
-        });
+        // Incidents insertion logic removed
 
         // Add End Event if completed
         if (round.endTime) {

@@ -57,12 +57,12 @@ const createAdditionalUsers = async (prisma: PrismaClient) => {
 
   // Catalina -> ADMIN
   await prisma.user.upsert({
-    where: { username: "catalina" },
+    where: { username: "admin" },
     update: {},
     create: {
-      name: "Catalina",
+      name: "Admin",
       lastName: "Admin",
-      username: "catalina",
+      username: "admin",
       password,
       role: Role.ADMIN,
     },
