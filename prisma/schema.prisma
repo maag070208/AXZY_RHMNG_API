@@ -16,6 +16,7 @@ enum Role {
   ADMIN
   SHIFT_GUARD
   GUARD
+  MANTENIMIENTO
 }
 
 enum AssignmentStatus {

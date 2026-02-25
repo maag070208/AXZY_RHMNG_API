@@ -35,7 +35,7 @@ export const getUserByUsername = async (username: string) => {
 
 export const addUser = async (data: any) => {
   // Auto-Assign Recurring Configs if Guard
-  if (data.role === 'GUARD' || data.role === 'SHIFT_GUARD') {
+  if (data.role === 'GUARD' || data.role === 'SHIFT_GUARD' || data.role === 'MANTENIMIENTO') {
       const allDirectives = await prismaClient.recurringConfiguration.findMany({
           where: { active: true },
           select: { id: true }
@@ -77,7 +77,7 @@ export const getLoggedInGuards = async (excludeUserId: number) => {
   return prismaClient.user.findMany({
     where: {
       role: {
-        in: ['GUARD', 'SHIFT_GUARD'],
+        in: ['GUARD', 'SHIFT_GUARD', 'MANTENIMIENTO'],
       },
       isLoggedIn: true,
       id: {

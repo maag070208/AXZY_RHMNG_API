@@ -35,8 +35,8 @@ export const login = async (req: Request, res: Response) => {
     console.log("------------------------ SCHEDULE ------------------------------")
 
     // SHIFT CHECK - Validar por horario del schedule
-    // Aplicar a GUARD, SHIFT_GUARD y HEAD_GUARD
-    if (user.role === 'GUARD' || user.role === 'SHIFT_GUARD' ) {
+    // Aplicar a GUARD, SHIFT_GUARD, HEAD_GUARD, MANTENIMIENTO
+    if (user.role === 'GUARD' || user.role === 'SHIFT_GUARD' || user.role === 'MANTENIMIENTO') {
       // Verificar que el usuario tenga un schedule asignado
       if (!user.schedule) {
         return res.status(403).json(createTResult("", ["No tiene un horario asignado"]));
@@ -222,7 +222,7 @@ export const getCoachesList = async (req: Request, res: Response) => {
 export const updateUserProfile = async (req: Request, res: Response) => {
   try {
     const { id } = req.params;
-    const { name, lastName, username, shiftStart, shiftEnd, scheduleId } = req.body;
+    const { name, lastName, username, shiftStart, shiftEnd, scheduleId, role } = req.body;
 
     const { updateUser } = require("./user.service");
 
@@ -230,6 +230,7 @@ export const updateUserProfile = async (req: Request, res: Response) => {
       name,
       lastName,
       username,
+      role,
       shiftStart,
       shiftEnd,
       scheduleId: scheduleId ? Number(scheduleId) : undefined

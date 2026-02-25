@@ -55,7 +55,7 @@ export const createRecurringConfiguration = async (title: string, locations: ILo
         // but if empty array is passed, it means "no guards".
         if (guardIds === undefined) { 
              const allGuards = await prismaClient.user.findMany({
-                where: { active: true, role: { in: ['GUARD', 'SHIFT_GUARD'] } },
+                where: { active: true, role: { in: ['GUARD', 'SHIFT_GUARD', 'MANTENIMIENTO'] } },
                 select: { id: true }
             });
             guardsToConnect = allGuards.map(g => ({ id: g.id }));

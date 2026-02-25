@@ -15,8 +15,8 @@ export const createAssignment = async (data: {
     where: { id: data.guardId },
   });
 
-  if (!guard || (guard.role !== "GUARD" && guard.role !== "SHIFT_GUARD")) {
-    throw new Error("Invalid guard ID or user is not a GUARD or SHIFT_GUARD");
+  if (!guard || (guard.role !== "GUARD" && guard.role !== "SHIFT_GUARD" && guard.role !== "MANTENIMIENTO")) {
+    throw new Error("Invalid guard ID or user is not a GUARD, SHIFT_GUARD or MANTENIMIENTO");
   }
 
   // Duplicate Check: Guard + Location + Active Status
