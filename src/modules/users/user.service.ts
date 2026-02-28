@@ -3,6 +3,7 @@ import { prismaClient } from "@src/core/config/database";
 export const getUsers = async (search?: string) => {
   if (!search) {
     return prismaClient.user.findMany({
+        where: { softDelete: false },
         orderBy: { name: 'asc' },
         include: { schedule: true }
     });
@@ -10,12 +11,12 @@ export const getUsers = async (search?: string) => {
 
   return prismaClient.user.findMany({
     where: {
+      softDelete: false,
       OR: [
           { name: { contains: search } }, 
           { lastName: { contains: search } },
           { username: { contains: search } }
       ]
-
     },
     orderBy: { name: 'asc' },
     include: { schedule: true }
@@ -84,5 +85,12 @@ export const getLoggedInGuards = async (excludeUserId: number) => {
         not: excludeUserId,
       },
     },
+  });
+};
+
+export const deleteUser = async (id: number) => {
+  return prismaClient.user.update({
+    where: { id },
+    data: { active: false, softDelete: true }
   });
 };

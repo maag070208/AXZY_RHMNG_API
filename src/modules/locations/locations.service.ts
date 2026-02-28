@@ -42,8 +42,28 @@ export const deleteLocation = async (id: number) => {
 
     if (!location) throw new Error("Location not found");
 
-    return await prisma.location.delete({
+    // 1. Remove from any Recurring configurations
+    // First find all recurring locations linked to this location
+    const recurringLocs = await prisma.recurringLocation.findMany({
+        where: { locationId: id }
+    });
+
+    for (const loc of recurringLocs) {
+        // Delete all tasks associated with this recurring location
+        await prisma.recurringTask.deleteMany({
+            where: { recurringLocationId: loc.id }
+        });
+    }
+
+    // Now delete the recurring locations themselves
+    await prisma.recurringLocation.deleteMany({
+        where: { locationId: id }
+    });
+
+    // 2. Soft delete the actual location
+    return await prisma.location.update({
         where: { id },
+        data: { softDelete: true, active: false },
     });
 };
 

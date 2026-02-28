@@ -289,3 +289,14 @@ export const resetPassword = async (req: Request, res: Response) => {
     return res.status(500).json(createTResult(null, error.message));
   }
 };
+
+export const deleteUser = async (req: Request, res: Response) => {
+  try {
+    const { id } = req.params;
+    const { deleteUser: deleteUserService } = require("./user.service");
+    await deleteUserService(Number(id));
+    return res.status(200).json(createTResult(true));
+  } catch (error: any) {
+    return res.status(500).json(createTResult(null, error.message));
+  }
+};
