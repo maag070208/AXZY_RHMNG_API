@@ -70,7 +70,7 @@ export const getAssignmentsByGuard = async (guardId: number) => {
     where: { 
       guardId,
       status: {
-        in: [AssignmentStatus.PENDING, AssignmentStatus.CHECKING, AssignmentStatus.UNDER_REVIEW, AssignmentStatus.ANOMALY]
+        in: [AssignmentStatus.PENDING, AssignmentStatus.ANOMALY]
       }
     },
     include: {
