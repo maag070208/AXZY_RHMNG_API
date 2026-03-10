@@ -89,8 +89,7 @@ export const getLoggedInGuards = async (excludeUserId: number) => {
 };
 
 export const deleteUser = async (id: number) => {
-  return prismaClient.user.update({
-    where: { id },
-    data: { active: false, softDelete: true }
+  return prismaClient.user.delete({
+    where: { id }
   });
 };
