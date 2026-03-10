@@ -280,7 +280,7 @@ export const getRounds = async (dateStr?: string, guardId?: number): Promise<TRe
         return { success: true, data: rounds, messages: [] };
 
     } catch (error: any) {
-        return { success: false, data: null, messages: ['Error al obtener rondas: ' + error.message] };
+        return { success: false, data: null, messages: ['Error al obtener Historial de recorridos: ' + error.message] };
     }
 };
 
@@ -292,7 +292,15 @@ export const getRoundDetail = async (roundId: number): Promise<TResult<any>> => 
                 guard: {
                     select: { id: true, name: true, lastName: true }
                 },
-                recurringConfiguration: true
+                recurringConfiguration: {
+                    include: {
+                        recurringLocations: {
+                            include: {
+                                location: true
+                            }
+                        }
+                    }
+                }
             }
         });
 

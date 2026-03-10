@@ -84,7 +84,7 @@ export const sendIncidentEmail = async (incident: any, guard: any) => {
         </div>
         
         <div style="background-color: #fcfcfc; padding: 15px; text-align: center; border-top: 1px solid #e0e0e0;">
-          <p style="font-size: 12px; color: #999; margin: 0;">Este es un mensaje automático del sistema de rondas y seguridad.</p>
+          <p style="font-size: 12px; color: #999; margin: 0;">Este es un mensaje automático del sistema de recorridos y seguridad.</p>
         </div>
       </div>
     `;
