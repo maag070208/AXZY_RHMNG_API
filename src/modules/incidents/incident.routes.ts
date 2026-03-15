@@ -5,6 +5,7 @@ import { authenticate } from "../common/middlewares/auth.middleware";
 const router = Router();
 
 router.post("/", authenticate, incidentController.createIncident);
+router.post("/datatable", incidentController.getDataTable);
 router.get("/", authenticate, incidentController.getIncidents);
 router.get("/pending-count", authenticate, incidentController.getPendingCount);
 router.put("/:id/resolve", authenticate, incidentController.resolveIncident);

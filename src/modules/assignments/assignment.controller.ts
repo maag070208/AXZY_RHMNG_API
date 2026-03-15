@@ -4,6 +4,15 @@ import * as assignmentService from "./assignment.service";
 import { AssignmentStatus } from "@prisma/client";
 import { createTResult } from "@src/core/mappers/tresult.mapper";
 
+export const getDataTable = async (req: Request, res: Response) => {
+  try {
+    const result = await assignmentService.getDataTableAssignments(req.body);
+    return res.status(200).json(createTResult(result));
+  } catch (error: any) {
+    return res.status(500).json(createTResult(null, error.message));
+  }
+};
+
 export const createAssignment = async (req: Request, res: Response) => {
   try {
     const { guardId, locationId, notes, tasks, assignedBy: bodyAssignedBy } = req.body;

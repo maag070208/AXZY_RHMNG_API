@@ -1,7 +1,9 @@
 import Router from "express";
-import { createUser, getAllUsers, login, getCoachesList, updateUserProfile, changePassword, logout, resetPassword, deleteUser } from "./user.controller";
+import { createUser, getAllUsers, login, getCoachesList, updateUserProfile, changePassword, logout, resetPassword, deleteUser, getDataTable } from "./user.controller";
 
 const router = Router();
+
+router.post("/datatable", getDataTable);
 
 router.get("/", getAllUsers);
 router.get("/coaches", getCoachesList);

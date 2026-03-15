@@ -1,6 +1,30 @@
-import { PrismaClient } from "@prisma/client";
+import { prismaClient } from "@src/core/config/database"; // Consistent with other modules
+import { ITDataTableFetchParams, ITDataTableResponse } from "@src/core/dto/datatable.dto";
+import { getPrismaPaginationParams } from "@src/core/utils/prisma-pagination.utils";
 
-const prisma = new PrismaClient();
+const prisma = prismaClient;
+
+export const getDataTableLocations = async (params: ITDataTableFetchParams): Promise<ITDataTableResponse<any>> => {
+  const prismaParams = getPrismaPaginationParams(params);
+
+  const [rows, total] = await Promise.all([
+    prisma.location.findMany({
+      ...prismaParams,
+      where: {
+        ...prismaParams.where,
+        softDelete: false,
+      }
+    }),
+    prisma.location.count({
+      where: {
+        ...prismaParams.where,
+        softDelete: false,
+      }
+    })
+  ]);
+
+  return { rows, total };
+};
 
 export const getAllLocations = async () => {
   return await prisma.location.findMany({

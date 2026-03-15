@@ -1,7 +1,31 @@
 
-import { PrismaClient } from '@prisma/client';
+import { prismaClient } from "@src/core/config/database";
 import { TResult } from '@src/core/dto/TResult';
-const prisma = new PrismaClient();
+import { ITDataTableFetchParams, ITDataTableResponse } from "@src/core/dto/datatable.dto";
+import { getPrismaPaginationParams } from "@src/core/utils/prisma-pagination.utils";
+
+const prisma = prismaClient;
+
+export const getDataTableRounds = async (params: ITDataTableFetchParams): Promise<ITDataTableResponse<any>> => {
+    const prismaParams = getPrismaPaginationParams(params);
+
+    const [rows, total] = await Promise.all([
+        prisma.round.findMany({
+            ...prismaParams,
+            include: {
+                guard: {
+                    select: { id: true, name: true, lastName: true }
+                },
+                recurringConfiguration: true
+            }
+        }),
+        prisma.round.count({
+            where: prismaParams.where
+        })
+    ]);
+
+    return { rows, total };
+};
 
 export const startRound = async (guardId: number, recurringConfigId?: number): Promise<TResult<any>> => {
   try {

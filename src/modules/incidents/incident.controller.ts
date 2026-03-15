@@ -3,6 +3,15 @@ import { Request, Response } from "express";
 import { StorageService } from "../storage/storage.service";
 import * as incidentService from "./incident.service";
 
+export const getDataTable = async (req: Request, res: Response) => {
+  try {
+    const result = await incidentService.getDataTableIncidents(req.body);
+    return res.status(200).json(createTResult(result));
+  } catch (error: any) {
+    return res.status(500).json(createTResult(null, error.message));
+  }
+};
+
 const storageService = new StorageService();
 
 export const createIncident = async (req: Request, res: Response) => {

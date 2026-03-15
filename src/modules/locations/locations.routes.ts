@@ -1,7 +1,9 @@
 import { Router } from "express";
-import { addLocation, getLocations, putLocation, removeLocation } from "./locations.controller";
+import { addLocation, getLocations, putLocation, removeLocation, getDataTable } from "./locations.controller";
 
 const router = Router();
+
+router.post("/datatable", getDataTable);
 
 router.get("/", getLocations);
 router.post("/", addLocation);

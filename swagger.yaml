@@ -1,4 +1,5 @@
 openapi: 3.0.3
+
 info:
   title: AXZY PARKING API
   description: API para control de estacionamiento, entradas, salidas, movimientos y evidencia.
@@ -17,6 +18,16 @@ tags:
     description: Carga de archivos
   - name: kardex
     description: Registro de rondines y evidencia
+  - name: schedules
+    description: Gestión de horarios de trabajo
+  - name: assignments
+    description: Control de tareas y zonas asignadas
+  - name: rounds
+    description: Seguimiento de recorridos de seguridad
+  - name: incidents
+    description: Reporte de anomalías detectadas
+  - name: maintenance
+    description: Solicitudes y seguimiento de mantenimiento
 
 
 
@@ -53,6 +64,24 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/TResultUser'
+
+  /users/datatable:
+    post:
+      tags: [users]
+      summary: Obtener usuarios paginados con filtros y ordenamiento
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/DataTableFetchParams'
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TResultDataTable'
 
   /users/login:
     post:
@@ -109,6 +138,24 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/TResultLocation'
+
+  /locations/datatable:
+    post:
+      tags: [locations]
+      summary: Obtener locaciones paginadas con filtros y ordenamiento
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/DataTableFetchParams'
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TResultDataTable'
 
   ###########################################################################
   # UPLOADS
@@ -206,8 +253,136 @@ paths:
 
 
 
+  ###########################################################################
+  # SCHEDULES
+  ###########################################################################
+  /schedules/datatable:
+    post:
+      tags: [schedules]
+      summary: Obtener horarios paginados con filtros y ordenamiento
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/DataTableFetchParams'
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TResultDataTable'
+
+  ###########################################################################
+  # ASSIGNMENTS
+  ###########################################################################
+  /assignments/datatable:
+    post:
+      tags: [assignments]
+      summary: Obtener asignaciones paginadas con filtros y ordenamiento
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/DataTableFetchParams'
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TResultDataTable'
+
+  ###########################################################################
+  # ROUNDS
+  ###########################################################################
+  /rounds/datatable:
+    post:
+      tags: [rounds]
+      summary: Obtener rondines paginados con filtros y ordenamiento
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/DataTableFetchParams'
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TResultDataTable'
+
+  ###########################################################################
+  # INCIDENTS
+  ###########################################################################
+  /incidents/datatable:
+    post:
+      tags: [incidents]
+      summary: Obtener incidencias paginadas con filtros y ordenamiento
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/DataTableFetchParams'
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TResultDataTable'
+
+  ###########################################################################
+  # MAINTENANCE
+  ###########################################################################
+  /maintenance/datatable:
+    post:
+      tags: [maintenance]
+      summary: Obtener mantenimientos paginados con filtros y ordenamiento
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/DataTableFetchParams'
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TResultDataTable'
+
 components:
   schemas:
+    DataTableFetchParams:
+      type: object
+      properties:
+        page: { type: integer, default: 1 }
+        limit: { type: integer, default: 10 }
+        filters: { type: object, additionalProperties: true }
+        sort:
+          type: object
+          properties:
+            key: { type: string }
+            direction: { type: string, enum: [asc, desc] }
+
+    TResultDataTable:
+      type: object
+      properties:
+        success: { type: boolean }
+        data:
+          type: object
+          properties:
+            rows: { type: array, items: { type: object } }
+            total: { type: integer }
+        messages: { type: array, items: { type: string } }
+
     ################################################################
     # TResult WRAPPERS
     ################################################################

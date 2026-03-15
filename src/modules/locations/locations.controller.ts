@@ -1,7 +1,15 @@
-import { Request, Response } from "express";
 import { createTResult } from "@src/core/mappers/tresult.mapper";
-// ... (previous imports)
-import { createLocation, getAllLocations, updateLocation, deleteLocation } from "./locations.service";
+import { Request, Response } from "express";
+import { createLocation, deleteLocation, getAllLocations, getDataTableLocations, updateLocation } from "./locations.service";
+
+export const getDataTable = async (req: Request, res: Response) => {
+  try {
+    const result = await getDataTableLocations(req.body);
+    return res.status(200).json(createTResult(result));
+  } catch (error: any) {
+    return res.status(500).json(createTResult(null, error.message));
+  }
+};
 
 export const getLocations = async (req: Request, res: Response) => {
   try {

@@ -1,4 +1,6 @@
 import { prismaClient } from "@src/core/config/database";
+import { ITDataTableFetchParams, ITDataTableResponse } from "@src/core/dto/datatable.dto";
+import { getPrismaPaginationParams } from "@src/core/utils/prisma-pagination.utils";
 
 export const getUsers = async (search?: string) => {
   if (!search) {
@@ -21,6 +23,29 @@ export const getUsers = async (search?: string) => {
     orderBy: { name: 'asc' },
     include: { schedule: true }
   });
+};
+
+export const getDataTableUsers = async (params: ITDataTableFetchParams): Promise<ITDataTableResponse<any>> => {
+  const prismaParams = getPrismaPaginationParams(params);
+
+  const [rows, total] = await Promise.all([
+    prismaClient.user.findMany({
+      ...prismaParams,
+      where: {
+        ...prismaParams.where,
+        softDelete: false, // Maintain business logic
+      },
+      include: { schedule: true }
+    }),
+    prismaClient.user.count({ 
+      where: {
+        ...prismaParams.where,
+        softDelete: false,
+      }
+    })
+  ]);
+
+  return { rows, total };
 };
 
 export const getUserByUsername = async (username: string) => {

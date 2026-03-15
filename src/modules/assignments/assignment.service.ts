@@ -1,6 +1,30 @@
 
+import { prismaClient } from "@src/core/config/database";
 import { PrismaClient, AssignmentStatus } from "@prisma/client";
-const prisma = new PrismaClient();
+import { ITDataTableFetchParams, ITDataTableResponse } from "@src/core/dto/datatable.dto";
+import { getPrismaPaginationParams } from "@src/core/utils/prisma-pagination.utils";
+
+const prisma = prismaClient;
+
+export const getDataTableAssignments = async (params: ITDataTableFetchParams): Promise<ITDataTableResponse<any>> => {
+  const prismaParams = getPrismaPaginationParams(params);
+
+  const [rows, total] = await Promise.all([
+    prisma.assignment.findMany({
+      ...prismaParams,
+      include: {
+        location: true,
+        guard: { select: { id: true, name: true, lastName: true } },
+        tasks: true,
+      }
+    }),
+    prisma.assignment.count({
+      where: prismaParams.where
+    })
+  ]);
+
+  return { rows, total };
+};
 
 // Create a new assignment
 export const createAssignment = async (data: {

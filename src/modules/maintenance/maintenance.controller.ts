@@ -2,6 +2,15 @@ import { createTResult } from "@src/core/mappers/tresult.mapper";
 import { Request, Response } from "express";
 import * as maintenanceService from "./maintenance.service";
 
+export const getDataTable = async (req: Request, res: Response) => {
+  try {
+    const result = await maintenanceService.getDataTableMaintenances(req.body);
+    return res.status(200).json(createTResult(result));
+  } catch (error: any) {
+    return res.status(500).json(createTResult(null, error.message));
+  }
+};
+
 export const createMaintenance = async (req: Request, res: Response) => {
   try {
     const { title, category, description, media } = req.body;

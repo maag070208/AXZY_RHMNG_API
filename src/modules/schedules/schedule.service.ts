@@ -1,4 +1,21 @@
 import { prismaClient } from "@src/core/config/database";
+import { ITDataTableFetchParams, ITDataTableResponse } from "@src/core/dto/datatable.dto";
+import { getPrismaPaginationParams } from "@src/core/utils/prisma-pagination.utils";
+
+export const getDataTableSchedules = async (params: ITDataTableFetchParams): Promise<ITDataTableResponse<any>> => {
+    const prismaParams = getPrismaPaginationParams(params);
+
+    const [rows, total] = await Promise.all([
+        prismaClient.schedule.findMany({
+            ...prismaParams,
+        }),
+        prismaClient.schedule.count({
+            where: prismaParams.where
+        })
+    ]);
+
+    return { rows, total };
+};
 
 export const getSchedules = async () => {
     return prismaClient.schedule.findMany({

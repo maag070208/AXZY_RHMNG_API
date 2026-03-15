@@ -1,4 +1,25 @@
 import { prismaClient } from "@src/core/config/database";
+import { ITDataTableFetchParams, ITDataTableResponse } from "@src/core/dto/datatable.dto";
+import { getPrismaPaginationParams } from "@src/core/utils/prisma-pagination.utils";
+
+export const getDataTableMaintenances = async (params: ITDataTableFetchParams): Promise<ITDataTableResponse<any>> => {
+    const prismaParams = getPrismaPaginationParams(params);
+
+    const [rows, total] = await Promise.all([
+        prismaClient.maintenance.findMany({
+            ...prismaParams,
+            include: { 
+                guard: true,
+                resolvedBy: true
+            },
+        }),
+        prismaClient.maintenance.count({
+            where: prismaParams.where
+        })
+    ]);
+
+    return { rows, total };
+};
 
 export const createMaintenance = async (data: {
     guardId: number;
