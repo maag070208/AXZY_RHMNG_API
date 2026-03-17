@@ -1,8 +1,9 @@
 openapi: 3.0.3
+
 info:
-  title: AXZY PARKING API
-  description: API para control de estacionamiento, entradas, salidas, movimientos y evidencia.
-  version: 1.0.0
+  title: RHMG RECRUITMENT API
+  description: API para gestión de recursos humanos y reclutamiento (Vacantes, Solicitantes, Entrevistas).
+  version: 2.0.0
 
 servers:
   - url: http://localhost:4444/api/v1
@@ -11,59 +12,33 @@ servers:
 tags:
   - name: users
     description: Gestión de usuarios y roles
-  - name: locations
-    description: Gestión de cajones de estacionamiento
+  - name: vacancies
+    description: Gestión de vacantes de empleo
+  - name: applicants
+    description: Control de aplicantes y postulaciones
+  - name: interviews
+    description: Programación y gestión de entrevistas
   - name: uploads
-    description: Carga de archivos
-  - name: kardex
-    description: Registro de rondines y evidencia
-
-
+    description: Carga de documentos y expedientes
 
 paths:
-
   ###########################################################################
   # USERS
   ###########################################################################
-  /users:
-    get:
-      tags: [users]
-      summary: Obtener todos los usuarios
-      responses:
-        "200":
-          description: OK
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/TResultUserArray'
-
-    post:
-      tags: [users]
-      summary: Registrar nuevo usuario
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/UserCreate'
-      responses:
-        "201":
-          description: Usuario creado exitosamente.
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/TResultUser'
-
   /users/login:
     post:
       tags: [users]
-      summary: Login
+      summary: Iniciar sesión
       requestBody:
         required: true
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/UserLogin'
+              type: object
+              required: [email, password]
+              properties:
+                email: { type: string }
+                password: { type: string }
       responses:
         "200":
           description: OK
@@ -71,44 +46,255 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/TResultLogin'
-        "401":
-          description: Invalid credentials
 
-  ###########################################################################
-  # LOCATIONS
-  ###########################################################################
-  /locations:
+  /users:
     get:
-      tags: [locations]
-      summary: Listar locaciones
-
+      tags: [users]
+      summary: Obtener todos los usuarios
       responses:
-        "200":
-          description: OK
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/TResultLocationArray'
+         "200":
+           description: OK
     post:
-      tags: [locations]
-      summary: Crear locación
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-               type: object
-               properties:
-                 aisle: { type: string }
-                 spot: { type: string }
-                 number: { type: string }
+       tags: [users]
+       summary: Registrar nuevo usuario
+       requestBody:
+         required: true
+         content:
+           application/json:
+             schema:
+                type: object
+                required: [name, email, password, role]
+                properties:
+                   name: { type: string }
+                   lastName: { type: string }
+                   email: { type: string }
+                   password: { type: string }
+                   role: { type: string, enum: [ADMIN, RECURSOS_HUMANOS, RECLUTADOR] }
+       responses:
+          "201":
+             description: Creado
+
+  ###########################################################################
+  # VACANCIES
+  ###########################################################################
+  /vacancies:
+    get:
+      tags: [vacancies]
+      summary: Listar todas las vacantes
+      parameters:
+        - in: query
+          name: status
+          schema:
+            type: string
+            enum: [DRAFT, ACTIVE, PAUSED, CLOSED, CANCELLED]
       responses:
-        "201":
-          description: Created
+         "200":
+           description: OK
+    post:
+      tags: [vacancies]
+      summary: Crear nueva vacante
+      requestBody:
+         required: true
+         content:
+           application/json:
+              schema:
+                 type: object
+                 required: [title]
+                 properties:
+                    title: { type: string }
+                    description: { type: string }
+                    department: { type: string }
+                    salary: { type: number }
+                    positions: { type: integer, default: 1 }
+      responses:
+         "201":
+           description: Vacante creada (incluye qrToken)
+
+  /vacancies/{id}:
+    get:
+       tags: [vacancies]
+       summary: Obtener vacante por ID
+       parameters:
+         - in: path
+           name: id
+           required: true
+           schema: { type: integer }
+       responses:
+          "200":
+             description: OK
+    put:
+       tags: [vacancies]
+       summary: Actualizar vacante
+       parameters:
+         - in: path
+           name: id
+           required: true
+           schema: { type: integer }
+       requestBody:
+          required: true
           content:
             application/json:
-              schema:
-                $ref: '#/components/schemas/TResultLocation'
+               schema:
+                  type: object
+                  properties:
+                     title: { type: string }
+                     description: { type: string }
+                     department: { type: string }
+                     salary: { type: number }
+                     positions: { type: integer }
+                     status: { type: string, enum: [DRAFT, ACTIVE, PAUSED, CLOSED, CANCELLED] }
+       responses:
+          "200":
+             description: Vacante actualizada
+
+  ###########################################################################
+  # APPLICANTS
+  ###########################################################################
+  /applicants/apply/{qrToken}:
+     post:
+        tags: [applicants]
+        summary: Aplicar a una vacante vía código QR Público
+        parameters:
+          - in: path
+            name: qrToken
+            required: true
+            schema: { type: string }
+        requestBody:
+           required: true
+           content:
+             application/json:
+                schema:
+                   type: object
+                   required: [firstName, lastName]
+                   properties:
+                      firstName: { type: string }
+                      lastName: { type: string }
+                      email: { type: string }
+                      phone: { type: string }
+                      birthDate: { type: string, format: date-time }
+                      experience: { type: string }
+                      education: { type: string }
+                      formData: { type: object }
+        responses:
+           "201":
+              description: Aplicación recibida
+
+  /applicants:
+     get:
+        tags: [applicants]
+        summary: Listar aplicantes (opcional por vacancyId)
+        parameters:
+          - in: query
+            name: vacancyId
+            schema: { type: integer }
+        responses:
+           "200":
+              description: OK
+  
+  /applicants/{id}:
+     get:
+        tags: [applicants]
+        summary: Ver detalle de aplicante
+        parameters:
+          - in: path
+            name: id
+            required: true
+            schema: { type: integer }
+        responses:
+           "200":
+              description: OK
+     put:
+        tags: [applicants]
+        summary: Actualizar estado de aplicante o datos
+        parameters:
+          - in: path
+            name: id
+            required: true
+            schema: { type: integer }
+        requestBody:
+           required: true
+           content:
+              application/json:
+                 schema:
+                    type: object
+                    properties:
+                       status: { type: string, enum: [REGISTERED, FORM_COMPLETED, INTERVIEW_SCHEDULED, INTERVIEWED, HIRED, REJECTED] }
+                       notes: { type: string }
+        responses:
+           "200":
+              description: Actualizado
+
+  ###########################################################################
+  # INTERVIEWS
+  ###########################################################################
+  /interviews:
+     get:
+        tags: [interviews]
+        summary: Listar de entrevistas
+        parameters:
+          - in: query
+            name: vacancyId
+            schema: { type: integer }
+          - in: query
+            name: applicantId
+            schema: { type: integer }
+        responses:
+           "200":
+              description: OK
+     post:
+        tags: [interviews]
+        summary: Agendar entrevista
+        requestBody:
+           required: true
+           content:
+              application/json:
+                 schema:
+                    type: object
+                    required: [scheduledAt, vacancyId, applicantId]
+                    properties:
+                       scheduledAt: { type: string, format: date-time }
+                       vacancyId: { type: integer }
+                       applicantId: { type: integer }
+                       interviewerId: { type: integer }
+                       notes: { type: string }
+        responses:
+           "201":
+              description: Entrevista agendada
+
+  /interviews/{id}:
+     get:
+        tags: [interviews]
+        summary: Ver detalle de entrevista
+        parameters:
+          - in: path
+            name: id
+            required: true
+            schema: { type: integer }
+        responses:
+           "200":
+              description: OK
+     put:
+        tags: [interviews]
+        summary: Actualizar entrevista
+        parameters:
+          - in: path
+            name: id
+            required: true
+            schema: { type: integer }
+        requestBody:
+           required: true
+           content:
+              application/json:
+                 schema:
+                    type: object
+                    properties:
+                       scheduledAt: { type: string, format: date-time }
+                       interviewerId: { type: integer }
+                       notes: { type: string }
+                       status: { type: string, enum: [SCHEDULED, COMPLETED, CANCELLED, NO_SHOW] }
+        responses:
+           "200":
+              description: Actualizado
 
   ###########################################################################
   # UPLOADS
@@ -116,7 +302,7 @@ paths:
   /uploads:
     post:
       tags: [uploads]
-      summary: Subir archivo (Imagen o Video)
+      summary: Subir documento (CV, INE, etc.)
       requestBody:
         required: true
         content:
@@ -133,228 +319,12 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/TResultUpload'
-
-  ###########################################################################
-  # KARDEX
-  ###########################################################################
-  /kardex:
-    post:
-      tags: [kardex]
-      summary: Crear registro de kardex
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/KardexCreate'
-      responses:
-        "201":
-           description: Le Created
-           content:
-             application/json:
-               schema:
-                 $ref: '#/components/schemas/TResultKardex'
-    get:
-      tags: [kardex]
-      summary: Listar kardex (filtros opcionales)
-      parameters:
-        - in: query
-          name: userId
-          schema:
-            type: integer
-        - in: query
-          name: locationId
-          schema:
-            type: integer
-        - in: query
-          name: startDate
-          schema:
-            type: string
-            format: date-time
-        - in: query
-          name: endDate
-          schema:
-            type: string
-            format: date-time
-      responses:
-         "200":
-           description: OK
-           content:
-             application/json:
-               schema:
-                 $ref: '#/components/schemas/TResultKardexArray'
-  
-  /kardex/{id}:
-    get:
-      tags: [kardex]
-      summary: Detalle de kardex
-      parameters:
-        - in: path
-          name: id
-          required: true
-          schema: 
-            type: integer
-      responses:
-         "200":
-           description: OK
-           content:
-             application/json:
-               schema:
-                 $ref: '#/components/schemas/TResultKardex'
-
-
-
+                type: object
 
 components:
   schemas:
-    ################################################################
-    # TResult WRAPPERS
-    ################################################################
-    TResultString:
-      type: object
-      properties:
-        data: { type: string }
-        error: { type: string, nullable: true }
-
-    TResultUser:
-      type: object
-      properties:
-        data: { $ref: '#/components/schemas/User' }
-        error: { type: string, nullable: true }
-
-    TResultUserArray:
-      type: object
-      properties:
-        data:
-          type: array
-          items: { $ref: '#/components/schemas/User' }
-        error: { type: string, nullable: true }
-
     TResultLogin:
       type: object
       properties:
         data: { type: string, description: JWT generado }
         error: { type: string, nullable: true }
-    
-    TResultLocation:
-       type: object
-       properties:
-         data: { $ref: '#/components/schemas/Location' }
-         error: { type: string, nullable: true }
-    
-    TResultLocationArray:
-       type: object
-       properties:
-         data:
-           type: array
-           items: { $ref: '#/components/schemas/Location' }
-         error: { type: string, nullable: true }
-
-    TResultUpload:
-       type: object
-       properties:
-         data:
-           type: object
-           properties:
-             url: { type: string }
-             mimetype: { type: string }
-             size: { type: integer }
-         error: { type: string, nullable: true }
-
-    TResultKardex:
-       type: object
-       properties:
-         data: { $ref: '#/components/schemas/Kardex' }
-         error: { type: string, nullable: true }
-
-    TResultKardexArray:
-       type: object
-       properties:
-         data:
-           type: array
-           items: { $ref: '#/components/schemas/Kardex' }
-         error: { type: string, nullable: true }
-
-
-
-    ################################################################
-    # ENTITIES
-    ################################################################
-
-    User:
-      type: object
-      properties:
-        id: { type: integer }
-        name: { type: string }
-        lastName: { type: string }
-        username: { type: string }
-
-        role: 
-           type: string
-           enum: [ADMIN, SHIFT_GUARD, GUARD]
-    UserCreate:
-      type: object
-      required: [name, username, password]
-
-      properties:
-        name: { type: string }
-        lastName: { type: string }
-        username: { type: string }
-
-        password: { type: string }
-        role: 
-           type: string
-           enum: [ADMIN, SHIFT_GUARD, GUARD]
-    UserLogin:
-      type: object
-      required: [username, password]
-
-      properties:
-        username: { type: string }
-
-        password: { type: string }
-    
-    Location:
-       type: object
-       properties:
-         id: { type: integer }
-         name: { type: string }
-         aisle: { type: string }
-         spot: { type: string }
-         number: { type: string }
-         isOccupied: { type: boolean }
-    
-    Kardex:
-       type: object
-       properties:
-         id: { type: integer }
-         userId: { type: integer }
-         locationId: { type: integer }
-         timestamp: { type: string, format: date-time }
-         notes: { type: string }
-         media: 
-           type: array
-           items:
-             type: object
-             properties:
-               type: { type: string, enum: [IMAGE, VIDEO] }
-               url: { type: string }
-               description: { type: string }
-         user: { $ref: '#/components/schemas/User' }
-         location: { $ref: '#/components/schemas/Location' }
-    
-    KardexCreate:
-       type: object
-       required: [userId, locationId]
-       properties:
-         userId: { type: integer }
-         locationId: { type: integer }
-         notes: { type: string }
-         media:
-           type: array
-           items:
-             type: object
-             properties:
-               type: { type: string, enum: [IMAGE, VIDEO] }
-               url: { type: string }
