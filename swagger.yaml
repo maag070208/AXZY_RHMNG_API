@@ -1,10 +1,8 @@
 openapi: 3.0.3
-
 info:
   title: RHMG RECRUITMENT API
   description: API para gestión de recursos humanos y reclutamiento (Vacantes, Solicitantes, Entrevistas).
   version: 2.0.0
-
 servers:
   - url: http://localhost:4444/api/v1
     description: Local server
