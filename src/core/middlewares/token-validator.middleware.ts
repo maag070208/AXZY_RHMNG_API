@@ -21,7 +21,7 @@ export default async function (
     
     // Shift Validation for Guards
     const user = decoded as any; 
-    if (user.role === 'GUARD' || user.role === 'SHIFT_GUARD') {
+    if (user.role === 'GUARD' || user.role === 'SHIFT_GUARD' || user.role === 'MANTENIMIENTO') {
         if (user.shiftStart && user.shiftEnd) {
              const dayjs = require('dayjs');
              const customParseFormat = require('dayjs/plugin/customParseFormat');

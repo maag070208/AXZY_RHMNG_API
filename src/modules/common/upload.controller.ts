@@ -17,21 +17,17 @@ export const uploadFile = async (req: Request, res: Response) => {
 
     const start = Date.now();
     const user = res.locals.user;
-    const locationName = req.body.location || "unknown";
     
-    // Format: name_quiensubio_locacion_fechayhora_minuto_segudo
-    // Example: originalname_username_location_YYYYMMDD_HH_mm_ss
-    // Using date-fns or just simple date formatting
+    // Format: email_fechayhora_minuto_segudo
     const now = new Date();
     const dateStr = now.toISOString().replace(/[-:T.]/g, "").slice(0, 14); // YYYYMMDDHHmmss
 
     // Sanitize strings
     const sanitize = (str: string) => str.replace(/[^a-zA-Z0-9]/g, "_");
-    const uploader = user ? sanitize(user.username || user.name || "user") : "anon";
-    const loc = sanitize(locationName);
+    const uploader = user ? sanitize(user.email || user.name || "user") : "anon";
     const ext = req.file.originalname.split('.').pop();
 
-    const finalName = `${uploader}_${loc}_${dateStr}.${ext}`;
+    const finalName = `${uploader}_${dateStr}.${ext}`;
 
     const result = await storageService.uploadFile(req.file, bucketName, finalName);
     

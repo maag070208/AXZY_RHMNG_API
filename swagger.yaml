@@ -4,7 +4,10 @@ info:
   title: RHMG RECRUITMENT API
   description: API para gestión de recursos humanos y reclutamiento (Vacantes, Solicitantes, Entrevistas).
   version: 2.0.0
+<<<<<<< HEAD
 
+=======
+>>>>>>> e529f04a8fa85c669ee77922ad676485dba68611
 servers:
   - url: http://localhost:4444/api/v1
     description: Local server

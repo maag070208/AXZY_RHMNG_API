@@ -1,6 +1,5 @@
 generator client {
-  provider      = "prisma-client-js"
-  binaryTargets = ["native", "linux-musl"]
+  provider = "prisma-client-js"
 }
 
 datasource db {
@@ -14,230 +13,211 @@ datasource db {
 
 enum Role {
   ADMIN
-  SHIFT_GUARD
-  GUARD
+  RECURSOS_HUMANOS
+  RECLUTADOR
 }
 
-enum AssignmentStatus {
-  PENDING
-  CHECKING
-  UNDER_REVIEW
-  REVIEWED
-  ANOMALY
+enum UserStatus {
+  ACTIVE
+  INACTIVE
+}
+
+enum VacancyStatus {
+  DRAFT
+  ACTIVE
+  PAUSED
+  CLOSED
+  CANCELLED
+}
+
+enum ApplicantStatus {
+  REGISTERED
+  FORM_COMPLETED
+  INTERVIEW_SCHEDULED
+  INTERVIEWED
+  HIRED
+  REJECTED
+}
+
+enum InterviewStatus {
+  SCHEDULED
+  COMPLETED
+  CANCELLED
+  NO_SHOW
 }
 
 ////////////////////////////////////////////////////
-// USER
+// USERS
 ////////////////////////////////////////////////////
 
 model User {
-  id         Int      @id @default(autoincrement())
-  name       String
-  lastName   String?
-  username   String   @unique
-  password   String
-  role       Role
-  active     Boolean  @default(true)
-  softDelete Boolean  @default(false)
-  shiftStart String? // HH:mm
-  shiftEnd   String? // HH:mm
-  isLoggedIn Boolean  @default(false)
-  createdAt  DateTime @default(now())
-  updatedAt  DateTime @updatedAt
-
-  // Relations
-  kardexEntries            Kardex[]
-  assignments              Assignment[]             @relation("GuardAssignments")
-  recurringConfigurations  RecurringConfiguration[] @relation("RecurringAssignments")
-  recurringConfiguration   RecurringConfiguration?  @relation(fields: [recurringConfigurationId], references: [id])
-  recurringConfigurationId Int?
-  incidents                Incident[]
-  resolvedIncidents        Incident[]               @relation("IncidentResolver")
-  rounds                   Round[]                  @relation("GuardRounds")
-
-  // Schedule Relation
-  scheduleId Int?
-  schedule   Schedule? @relation(fields: [scheduleId], references: [id])
-}
-
-model Schedule {
-  id        Int     @id @default(autoincrement())
-  name      String  @unique // e.g., "Matutino", "Vespertino"
-  startTime String // "07:00"
-  endTime   String // "15:00"
-  active    Boolean @default(true)
-
-  users User[]
-
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-}
-
-////////////////////////////////////////////////////
-// LOCATIONS (PARKING SPOTS)
-////////////////////////////////////////////////////
-
-model Location {
-  id         Int      @id @default(autoincrement())
-  aisle      String
-  spot       String
-  number     String
-  name       String   @unique
-  isOccupied Boolean  @default(false)
-  active     Boolean  @default(true)
-  softDelete Boolean  @default(false)
-  createdAt  DateTime @default(now())
-  updatedAt  DateTime @updatedAt
-
-  kardexEntries      Kardex[]
-  assignments        Assignment[]
-  recurringLocations RecurringLocation[]
-}
-
-model Kardex {
-  id         Int      @id @default(autoincrement())
-  userId     Int
-  locationId Int
-  timestamp  DateTime @default(now())
-  notes      String?  @db.Text
-  media      Json? // Array of { type: 'IMAGE' | 'VIDEO', url: 'string' }
-  latitude   Float?
-  longitude  Float?
-
-  scanType     ScanType @default(FREE)
-  assignmentId Int? // Optional link to an assignment
-
-  user       User        @relation(fields: [userId], references: [id])
-  location   Location    @relation(fields: [locationId], references: [id])
-  assignment Assignment? @relation(fields: [assignmentId], references: [id])
-
-  @@index([userId])
-  @@index([locationId])
-  @@index([timestamp])
-}
-
-model Assignment {
-  id         Int              @id @default(autoincrement())
-  guardId    Int
-  locationId Int
-  status     AssignmentStatus @default(PENDING)
-  assignedBy Int // ID of user who created assignment
-  notes      String?          @db.Text
+  id       Int        @id @default(autoincrement())
+  name     String
+  lastName String?
+  username String     @unique
+  password String
+  role     Role
+  status   UserStatus @default(ACTIVE)
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  // Relations
-  guard    User     @relation("GuardAssignments", fields: [guardId], references: [id])
-  location Location @relation(fields: [locationId], references: [id])
-  kardex   Kardex[]
-
-  tasks AssignmentTask[]
-
-  @@index([guardId])
-  @@index([locationId])
-}
-
-model AssignmentTask {
-  id           Int       @id @default(autoincrement())
-  assignmentId Int
-  description  String
-  reqPhoto     Boolean   @default(false)
-  completed    Boolean   @default(false)
-  completedAt  DateTime?
-
-  assignment Assignment @relation(fields: [assignmentId], references: [id])
-
-  @@index([assignmentId])
+  createdVacancies Vacancy[]   @relation("VacancyCreator")
+  interviews       Interview[] @relation("InterviewUser")
 }
 
 ////////////////////////////////////////////////////
-// RECURRING LOCATIONS
+// VACANTES
 ////////////////////////////////////////////////////
 
-enum ScanType {
-  ASSIGNMENT
-  RECURRING
-  FREE
-}
-
-model RecurringConfiguration {
+model Vacancy {
   id          Int     @id @default(autoincrement())
-  title       String
-  description String?
-  active      Boolean @default(true)
+  title       String?
+  description String? @db.Text
+  department  String?
+  salary      Float?
+  positions   Int     @default(1)
 
-  recurringLocations RecurringLocation[]
-  guards             User[]              @relation("RecurringAssignments")
+  status VacancyStatus @default(DRAFT)
 
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-  users     User[]
-}
+  // token para generar QR
+  qrToken String @unique @default(uuid())
 
-model RecurringLocation {
-  id              Int     @id @default(autoincrement())
-  configurationId Int
-  locationId      Int
-  active          Boolean @default(true)
+  startDate DateTime?
+  endDate   DateTime?
+  workSchedule String? @db.Text
 
-  configuration RecurringConfiguration @relation(fields: [configurationId], references: [id])
-  location      Location               @relation(fields: [locationId], references: [id])
-  tasks         RecurringTask[]
+  slots     VacancySlot[]
 
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-}
-
-model RecurringTask {
-  id                  Int     @id @default(autoincrement())
-  recurringLocationId Int
-  description         String
-  reqPhoto            Boolean @default(false)
-
-  recurringLocation RecurringLocation @relation(fields: [recurringLocationId], references: [id])
-}
-
-// Update Kardex model to include scanType
-// Add this below the Kardex model definition or merging it
-
-model Incident {
-  id           Int            @id @default(autoincrement())
-  guardId      Int
-  title        String // e.g. "Vehiculo mal estacionado"
-  category     String // e.g. "MULTA", "MANTENIMIENTO", "ACCESO"
-  description  String?        @db.Text
-  media        Json? // Array of { type: 'IMAGE' | 'VIDEO', url: 'string' }
-  status       IncidentStatus @default(PENDING)
-  resolvedAt   DateTime?
-  resolvedById Int?
+  createdById Int?
+  createdBy   User? @relation("VacancyCreator", fields: [createdById], references: [id])
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  guard      User  @relation(fields: [guardId], references: [id])
-  resolvedBy User? @relation("IncidentResolver", fields: [resolvedById], references: [id])
+  applicants Applicant[]
+  interviews Interview[]
+
+  @@index([status])
 }
 
-enum IncidentStatus {
-  PENDING
-  ATTENDED
+model VacancySlot {
+  id        Int      @id @default(autoincrement())
+  startTime DateTime
+  endTime   DateTime
+  positions Int      @default(1)
+  
+  vacancyId Int
+  vacancy   Vacancy  @relation(fields: [vacancyId], references: [id])
+  
+  applicants Applicant[]
+  
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  
+  @@index([vacancyId])
 }
 
-model Round {
-  id        Int         @id @default(autoincrement())
-  guardId   Int
-  startTime DateTime    @default(now())
-  endTime   DateTime?
-  status    RoundStatus @default(IN_PROGRESS)
+////////////////////////////////////////////////////
+// SOLICITANTES
+////////////////////////////////////////////////////
 
-  guard User @relation("GuardRounds", fields: [guardId], references: [id])
+model Applicant {
+  id Int @id @default(autoincrement())
+
+  firstName String
+  lastName  String
+
+  email String?
+  phone String?
+
+  birthDate DateTime?
+
+  address String?
+  city    String?
+
+  education  String?
+  experience String? @db.Text
+
+  resumeUrl String?
+
+  status ApplicantStatus @default(REGISTERED)
+
+  formCompleted Boolean @default(false)
+
+  // informacion adicional del formulario
+  formData Json?
+
+  notes String? @db.Text
+
+  vacancyId Int?
+  vacancy   Vacancy? @relation(fields: [vacancyId], references: [id])
+
+  slotId    Int?
+  slot      VacancySlot? @relation(fields: [slotId], references: [id])
+
+  interviews Interview[]
+
+  documents ApplicantDocument[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([vacancyId])
 }
 
-enum RoundStatus {
-  IN_PROGRESS
-  COMPLETED
+////////////////////////////////////////////////////
+// ENTREVISTAS / CITAS
+////////////////////////////////////////////////////
+
+model Interview {
+  id Int @id @default(autoincrement())
+
+  scheduledAt DateTime
+
+  notes String? @db.Text
+
+  status InterviewStatus @default(SCHEDULED)
+
+  vacancyId Int
+  vacancy   Vacancy @relation(fields: [vacancyId], references: [id])
+
+  applicantId Int
+  applicant   Applicant @relation(fields: [applicantId], references: [id])
+
+  interviewerId Int?
+  interviewer   User? @relation("InterviewUser", fields: [interviewerId], references: [id])
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([scheduledAt])
+  @@index([vacancyId])
+  @@index([applicantId])
 }
+
+////////////////////////////////////////////////////
+// DOCUMENTOS DEL CANDIDATO
+////////////////////////////////////////////////////
+
+model ApplicantDocument {
+  id Int @id @default(autoincrement())
+
+  applicantId Int
+  applicant   Applicant @relation(fields: [applicantId], references: [id])
+
+  type String // INE, CURP, CV, COMPROBANTE_DOMICILIO
+
+  fileUrl String
+
+  uploadedAt DateTime @default(now())
+
+  @@index([applicantId])
+}
+
+////////////////////////////////////////////////////
+// CONFIGURACION DEL SISTEMA
+////////////////////////////////////////////////////
 
 model SysConfig {
   key   String @id
