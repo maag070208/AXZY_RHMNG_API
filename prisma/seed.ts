@@ -1,17 +1,14 @@
 import { PrismaClient } from "@prisma/client";
-import { securitySeed } from "./seeds/security";
-import { locationsSeed } from "./seeds/locations";
 import { sysConfigSeed } from "./seeds/sysconfig";
-
-import { schedulesSeed } from "./seeds/schedules";
+import { vacanciesSeed } from "./seeds/vacancies";
+import { usersSeed } from "./seeds/users";
 
 const prisma = new PrismaClient();
 
 async function main() {
-  await schedulesSeed(prisma);
-  await securitySeed(prisma);
-  await locationsSeed(prisma);
   await sysConfigSeed(prisma);
+  await vacanciesSeed(prisma);
+  await usersSeed(prisma);
 }
 
 main()

@@ -16,12 +16,17 @@ const app = express();
 
 const PORT = 4444;
 
-app.use([
-  express.json(),
-  helmet({ crossOriginResourcePolicy: { policy: "cross-origin" } }),
-  cors(),
-  morgan("dev"),
-]);
+app.use(cors({
+  origin: "*",
+  methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH"],
+  allowedHeaders: ["Content-Type", "Authorization", "X-Requested-With", "Accept", "Origin"],
+}));
+app.use(express.json());
+app.use(helmet({ 
+  crossOriginResourcePolicy: { policy: "cross-origin" },
+  crossOriginOpenerPolicy: { policy: "unsafe-none" }
+}));
+app.use(morgan("dev"));
 
 app.use(
   "/swagger",
